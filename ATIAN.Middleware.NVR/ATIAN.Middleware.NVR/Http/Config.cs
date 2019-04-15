@@ -21,7 +21,7 @@ namespace ATIAN.Middleware.NVR.Http
         /// NVR设备登陆信息
         /// </summary>
         [JsonProperty("NVRConfig")]
-        public DVRInfo DVRInfos { get; set; }
+        public NVRInfo DVRInfos { get; set; }
 
 
         /// <summary>

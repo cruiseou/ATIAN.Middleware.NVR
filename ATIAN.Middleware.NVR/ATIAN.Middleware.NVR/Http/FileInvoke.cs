@@ -59,9 +59,15 @@ namespace ATIAN.Middleware.NVR.Http
             {
                 return true;
             };
-            var request = new RestRequest(fileSeting.fileToUploadapiUri + "/" + fileSeting.Uri.UploadFile + diskIndex + "/" +
+
+            string fileurl = fileSeting.fileToUploadapiUri + "/" + fileSeting.Uri.UploadFile + 
+                             EncodeBase64("utf-8", filepath) + "/" +
+                             filename + "?fileType=mp4";
+
+            Console.WriteLine("上传路径为:"+fileurl);
+            var request = new RestRequest(fileSeting.fileToUploadapiUri + "/" + fileSeting.Uri.UploadFile  + "/" +
                                                EncodeBase64("utf-8", filepath) + "/" +
-                                               filename + "?fileType=mp4&fileSize=0", Method.GET);
+                                               filename + "?fileType=mp4", Method.GET);
             _client.ExecuteAsync(request, (res, handle) =>
             {
              

@@ -5,6 +5,7 @@ using ATIAN.Middleware.NVR.NVRSDK;
 using ATIAN.Middleware.NVR.ProgressBarSolution;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -154,7 +155,7 @@ namespace ATIAN.Middleware.NVR
             if (m_lUserID < 0)
             {
                 //登录设备 Login the device
-                m_lUserID = CHCNetSDK.NET_DVR_Login_V30(config.DVRInfos.DVRIPAddress, config.DVRInfos.DVRPortNumber, config.DVRInfos.DVRUserName, config.DVRInfos.DVRPassword, ref DeviceInfo);
+                m_lUserID = CHCNetSDK.NET_DVR_Login_V30(config.DVRInfos.NVRIPAddress, config.DVRInfos.NVRPortNumber, config.DVRInfos.NVRUserName, config.DVRInfos.NVRPassword, ref DeviceInfo);
                 if (m_lUserID < 0)
                 {
                     iLastErr = CHCNetSDK.NET_DVR_GetLastError();
@@ -286,9 +287,6 @@ namespace ATIAN.Middleware.NVR
             }
             Marshal.FreeHGlobal(ptrIpParaCfgV40);
         }
-
-
-      
 
         static void ListIPChannel(Int32 iChanNo, byte byOnline, byte byIPID)
         {
@@ -490,9 +488,19 @@ namespace ATIAN.Middleware.NVR
         {
             for (int j = 0; j < e.DataItems.Count; j++)
             {
-                ExistToDownload(e.DataItems[j]);
+                //是否在报警的光纤长度内
+                if (e.DataItems[j].CenterPosition < config.AlarmSetings.Endlength && e.DataItems[j].CenterPosition > config.AlarmSetings.FrontLength)
+                {
+                    ExistToDownload(e.DataItems[j]);
+                }
+
+               
             }
         }
+
+      //  private ConcurrentDictionary<int, ApiAlarmEntity> _alarmdictionary;
+
+
 
         /// <summary>
         /// 拿出数据，更具配置文件信息是否需要录像
@@ -505,12 +513,17 @@ namespace ATIAN.Middleware.NVR
             {
                 DateTime AlarmTime = channelAlarmModel.FirstPushTime;
 
-                DateTime dateTimeStart = AlarmTime.AddSeconds(-30);
-                DateTime dateTimeEnd = AlarmTime.AddSeconds(30);
+                DateTime dateTimeStart = AlarmTime.AddSeconds(config.DVRInfos.AlarmTimeLeft);
+                DateTime dateTimeEnd = AlarmTime.AddSeconds(config.DVRInfos.AlarmTimeRight);
+
+                AlarmSetingInfo alarmSetingInfoEntity =new AlarmSetingInfo();
                 switch (channelAlarmModel.Level)
                 {
                     //一级警报
                     case 1:
+                        alarmSetingInfoEntity =
+                            config.AlarmSetings.AlarmSetings.Where(o => o.Level == 2).SingleOrDefault();
+
 
                         for (int j = 0; j < nvrChannelInfoList.Count; j++)
                         {
@@ -521,7 +534,8 @@ namespace ATIAN.Middleware.NVR
 
                         break;
                     case 2:
-
+                         alarmSetingInfoEntity =
+                            config.AlarmSetings.AlarmSetings.Where(o => o.Level == 2).SingleOrDefault();
                         for (int j = 0; j < nvrChannelInfoList.Count; j++)
                         {
                             DateTime fileDateTimeName = DateTime.Now;
@@ -530,7 +544,8 @@ namespace ATIAN.Middleware.NVR
                         }
                         break;
                     case 3:
-
+                        alarmSetingInfoEntity =
+                            config.AlarmSetings.AlarmSetings.Where(o => o.Level == 1).SingleOrDefault();
                         for (int j = 0; j < nvrChannelInfoList.Count; j++)
                         {
                             DateTime fileDateTimeName = DateTime.Now;

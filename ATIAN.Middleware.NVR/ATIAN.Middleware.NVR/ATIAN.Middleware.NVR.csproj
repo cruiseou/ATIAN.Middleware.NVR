@@ -111,7 +111,7 @@
     <Compile Include="Http\FileSeting.cs" />
     <Compile Include="MQTT\MOTTDFVS.cs" />
     <Compile Include="NVRSDK\CHCNetSDK.cs" />
-    <Compile Include="NVRSDK\DVRInfo.cs" />
+    <Compile Include="NVRSDK\NVRInfo.cs" />
     <Compile Include="NVRSDK\NVRChannelInfo.cs" />
     <Compile Include="NVRSDK\NVRIPCInfoList.cs" />
     <Compile Include="Program.cs" />
@@ -122,6 +122,9 @@
     <None Include="App.config" />
     <None Include="appsettings.json" />
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Entity\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -9,15 +9,29 @@ namespace ATIAN.Middleware.NVR.Http
 {
     internal class AlarmSeting
     {
+     
+        /// <summary>
+        /// 光纤前端忽略长度
+        /// </summary>
+        public float FrontLength { get; set; }
+
+        /// <summary>
+        /// 光纤末端忽略长度
+        /// </summary>
+        public float Endlength { get; set; }
+
 
         [JsonProperty("AlarmSetingInfo")]
-        public IList<AalarmInfo> AlarmSetings { get; set; }
+        public IList<AlarmSetingInfo> AlarmSetings { get; set; }
     }
 
-    internal class AalarmInfo
+    internal class AlarmSetingInfo
     {
 
-        public int Leave
+        /// <summary>
+        /// 等级
+        /// </summary>
+        public int Level
         {
             get;
             set;
