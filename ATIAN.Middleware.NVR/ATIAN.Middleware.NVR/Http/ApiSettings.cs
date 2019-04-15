@@ -24,5 +24,7 @@ namespace ATIAN.Middleware.NVR.Http
         public string IsBroken { get; set; }
 
         public string NVRIPCInfo  { get; set; }
-}
+
+        public string Device { get; set; }
+    }
 }

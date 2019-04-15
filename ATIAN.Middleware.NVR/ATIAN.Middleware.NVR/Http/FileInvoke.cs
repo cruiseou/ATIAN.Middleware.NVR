@@ -59,40 +59,13 @@ namespace ATIAN.Middleware.NVR.Http
             {
                 return true;
             };
-
-            string fileurl = fileSeting.fileToUploadapiUri + "/" + fileSeting.Uri.UploadFile + 
+            string fileurl = fileSeting.fileToUploadapiUri + "/" + fileSeting.Uri.UploadFile +
                              EncodeBase64("utf-8", filepath) + "/" +
                              filename + "?fileType=mp4";
 
-            Console.WriteLine("上传路径为:"+fileurl);
-            var request = new RestRequest(fileSeting.fileToUploadapiUri + "/" + fileSeting.Uri.UploadFile  + "/" +
-                                               EncodeBase64("utf-8", filepath) + "/" +
-                                               filename + "?fileType=mp4", Method.GET);
-            _client.ExecuteAsync(request, (res, handle) =>
-            {
-             
-                switch ((int)res.StatusCode)
-                {
-                    case 200:
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine($"返回代码：{res.StatusCode}\r\n返回信息：{res}");
-                        Console.WriteLine($"");
-
-                        break;
-                    case 0:
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine($"错误代码：{res.StatusCode}\r\n错误信息：{res.ErrorException.Message}");
-                        break;
-                    default:
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        string errorInfo = $"错误代码：{res.StatusCode}\r\n";
-                        //if (context != null)
-                        //    errorInfo += $"错误信息：{context.result} {context.message}";
-                        Console.WriteLine(errorInfo);
-                        break;
-                }
-            });
-
+            HttpClient resClient = new HttpClient();
+            var result = resClient.GetAsync(fileurl);
+            Console.WriteLine(result.Result.Content.ReadAsStringAsync().Result);
         }
     }
 }

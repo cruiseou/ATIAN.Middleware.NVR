@@ -103,10 +103,13 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Entity\AlarmConvertEntity.cs" />
+    <Compile Include="Entity\DeviceInfoEntity.cs" />
     <Compile Include="Http\AlarmSeting.cs" />
     <Compile Include="Http\APIInvoke.cs" />
     <Compile Include="Http\ApiSettings.cs" />
     <Compile Include="Http\Config.cs" />
+    <Compile Include="Http\DeviceInfo.cs" />
     <Compile Include="Http\FileInvoke.cs" />
     <Compile Include="Http\FileSeting.cs" />
     <Compile Include="MQTT\MOTTDFVS.cs" />
@@ -123,8 +126,6 @@
     <None Include="appsettings.json" />
     <None Include="packages.config" />
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Entity\" />
-  </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

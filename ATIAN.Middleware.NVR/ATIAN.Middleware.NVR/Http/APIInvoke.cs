@@ -1,4 +1,5 @@
-﻿using ATIAN.Middleware.NVR.NVRSDK;
+﻿using ATIAN.Middleware.NVR.Entity;
+using ATIAN.Middleware.NVR.NVRSDK;
 using Newtonsoft.Json;
 using RestSharp;
 using System;
@@ -93,6 +94,30 @@ namespace ATIAN.Middleware.NVR.Http
             }
 
             return nvrChannelInfoList;
+
+
+
+        }
+
+
+
+
+        public DeviceInfoEntity GetDeviceInfoEntiy(string deviceID)
+        {
+            DeviceInfoEntity deviceInfoEntity = new DeviceInfoEntity();
+            var request = new RestRequest(apiSettings.Uri.Device , Method.GET);
+            var res = _client.Execute(request);
+            DeviceInfo deviceInfo=new DeviceInfo();
+            if ((int)res.StatusCode == 200)
+            {
+
+                  deviceInfo= JsonConvert.DeserializeObject<DeviceInfo> (res.Content);
+                
+            }
+
+            deviceInfoEntity = deviceInfo.Uri.Where(o => o.DeviceID == deviceID).SingleOrDefault();
+
+            return deviceInfoEntity;
 
 
 

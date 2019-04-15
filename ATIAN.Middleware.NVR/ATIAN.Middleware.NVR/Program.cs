@@ -1,8 +1,12 @@
-﻿using ATIAN.Middleware.NVR.Http;
+﻿using ATIAN.Middleware.NVR.Entity;
+using ATIAN.Middleware.NVR.Http;
 using ATIAN.Middleware.NVR.MQTT;
 using ATIAN.Middleware.NVR.NVRSDK;
 
 using ATIAN.Middleware.NVR.ProgressBarSolution;
+using MQTTnet;
+using MQTTnet.Client;
+using MQTTnet.Extensions.ManagedClient;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Concurrent;
@@ -98,11 +102,19 @@ namespace ATIAN.Middleware.NVR
 
             FileInvoke.Instance().Init(config.FileSeting);
             SetConsoleCtrlHandler(cancelHandler, true);
+
+
             StartMqttService();
+
+
             InItNVR();
             ConnectNVR();
             Console.ReadKey();
         }
+        /// <summary>
+        /// mqtt客户端
+        /// </summary>
+        static IManagedMqttClient mqttClient;
 
         /// <summary>
         ///启动mqtt
@@ -113,15 +125,113 @@ namespace ATIAN.Middleware.NVR
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("-----------------------------------------------------------");
             Console.WriteLine(DateTime.Now.ToString() + ":开始启动Mqtt服务");
-            Thread.Sleep(1000);
-            mqttService = new MOTTDFVS();
-            mqttService.AlaramDataBing += MqttService_AlaramDataBing;
-            mqttService.FiberDataBing += MqttService_FiberDataBing;
-            mqttService.Start("127.0.0.1", 1883);
+
+            mqttClient = new MqttFactory().CreateManagedMqttClient();
+            //链接事件
+            mqttClient.Connected += MqttClient_Connected;
+            //断开链接事件
+            mqttClient.Disconnected += MqttClient_Disconnected;
+            //连接失败事件
+            mqttClient.ConnectingFailed += MqttClient_ConnectingFailed;
+            //订阅失败事件
+            mqttClient.SynchronizingSubscriptionsFailed += MqttClient_SynchronizingSubscriptionsFailed;
+            //数据接收事件
+            mqttClient.ApplicationMessageReceived += MqttClient_ApplicationMessageReceived;
+
+            mqttClient.StartAsync(new ManagedMqttClientOptionsBuilder()
+                .WithAutoReconnectDelay(TimeSpan.FromSeconds(10))
+                .WithClientOptions(new MqttClientOptionsBuilder()
+                    .WithClientId(Guid.NewGuid().ToString())
+                    .WithCleanSession(true)
+                    .WithTcpServer("127.0.0.1", 1883)
+                    .Build())
+                .Build());
+            mqttClient.SubscribeAsync("DFVS/Alarms/Converted");
+
+      
+
+            //Thread.Sleep(1000);
+            //mqttService = new MOTTDFVS();
+            //mqttService.AlaramDataBing += MqttService_AlaramDataBing;
+            //mqttService.FiberDataBing += MqttService_FiberDataBing;
+            //mqttService.Start("127.0.0.1", 1883);
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine(DateTime.Now.ToString() + ":Mqtt服务启动成功");
             Console.WriteLine("-----------------------------------------------------------");
         }
+
+        /// <summary>
+        /// 连接事件
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        static void MqttClient_Connected(object sender, MqttClientConnectedEventArgs e)
+        {
+
+        }
+
+        /// <summary>
+        /// 断开链接事件
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        static void MqttClient_Disconnected(object sender, MqttClientDisconnectedEventArgs e)
+        {
+
+        }
+
+        /// <summary>
+        /// 连接失败事件
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        static void MqttClient_ConnectingFailed(object sender, MqttManagedProcessFailedEventArgs e)
+        {
+
+        }
+
+        /// <summary>
+        /// 订阅失败事件
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        static void MqttClient_SynchronizingSubscriptionsFailed(object sender, MqttManagedProcessFailedEventArgs e)
+        {
+
+        }
+
+        /// <summary>
+        /// mqtt消息接收事件
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        static void MqttClient_ApplicationMessageReceived(object sender, MqttApplicationMessageReceivedEventArgs e)
+        {
+            byte[] buffPayLoad = e.ApplicationMessage.Payload;
+            var payloadString = Encoding.UTF8.GetString(e.ApplicationMessage.Payload);
+            //一般警报
+            if (e.ApplicationMessage.Topic.Equals("DFVS/Alarms/Converted"))
+            {
+                var model = JsonConvert.DeserializeObject<AlarmConvertEntity>(payloadString);
+
+                if (model.AlarmLevel >-1)
+                {
+                    if (model.AlarmLocation < config.AlarmSetings.Endlength && model.AlarmLocation > config.AlarmSetings.FrontLength)
+                    {
+                        ExistToDownload(model);
+                    }
+
+                }
+          
+
+           
+            }
+            
+        }
+
+
+
+
 
         /// <summary>
         /// 初始化NVR
@@ -337,7 +447,7 @@ namespace ATIAN.Middleware.NVR
         /// <param name="SensorID"></param>
         /// <param name="ChannelID"></param>
         /// <param name="filename"></param>
-        static void DownloadByTime(DateTime dateTimeStart, DateTime dateTimeEnd, string NVRSerialNo, int NVRChannelNo, string SensorID, int ChannelID, DateTime filename)
+        static void DownloadByTime(DateTime dateTimeStart, DateTime dateTimeEnd, string NVRSerialNo, int NVRChannelNo, string SensorID, DateTime filename)
         {
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("-----------------------------------------------------------");
@@ -373,8 +483,6 @@ namespace ATIAN.Middleware.NVR
                 .Replace(@" ", ""));
             name.Append("_");
             name.Append(SensorID);
-            name.Append("_");
-            name.Append(ChannelID);
             name.Append("_");
             name.Append(NVRSerialNo);
             name.Append("_");
@@ -434,7 +542,7 @@ namespace ATIAN.Middleware.NVR
             string diskIndex = fullpath.Split(':')[0].TrimEnd();
 
             string[] arraypath = fullpath.Split('\\');
-            string directoryBase = arraypath[1].TrimEnd()+"\\"+ arraypath[2].TrimEnd() + "\\" + arraypath[3].TrimEnd();
+            string directoryBase = arraypath[3].TrimEnd()+"\\"+ arraypath[4].TrimEnd() + "\\";
             
 
 
@@ -491,7 +599,7 @@ namespace ATIAN.Middleware.NVR
                 //是否在报警的光纤长度内
                 if (e.DataItems[j].CenterPosition < config.AlarmSetings.Endlength && e.DataItems[j].CenterPosition > config.AlarmSetings.FrontLength)
                 {
-                    ExistToDownload(e.DataItems[j]);
+                   // ExistToDownload(e.DataItems[j]);
                 }
 
                
@@ -506,18 +614,19 @@ namespace ATIAN.Middleware.NVR
         /// 拿出数据，更具配置文件信息是否需要录像
         /// </summary>
         /// <param name="channelAlarmModel"></param>
-        static void ExistToDownload(ATIAN.Common.MQTTLib.Protocol.DFVS.ChannelAlarmModel channelAlarmModel)
+        static void ExistToDownload(AlarmConvertEntity alarmConvertEntity)//ExistToDownload(ATIAN.Common.MQTTLib.Protocol.DFVS.ChannelAlarmModel channelAlarmModel)
         {
-            List<NVRChannelInfo> nvrChannelInfoList = GetNVRChannelInfo(channelAlarmModel.SensorID, channelAlarmModel.ChannelID);
+            DeviceInfoEntity deviceInfoEntity = APIInvoke.Instance().GetDeviceInfoEntiy(alarmConvertEntity.DeviceID);
+            List<NVRChannelInfo> nvrChannelInfoList = GetNVRChannelInfo(alarmConvertEntity.DeviceID);
             if (nvrChannelInfoList != null && nvrChannelInfoList.Count > 0)
             {
-                DateTime AlarmTime = channelAlarmModel.FirstPushTime;
+                DateTime AlarmTime = alarmConvertEntity.AlarmTime;
 
                 DateTime dateTimeStart = AlarmTime.AddSeconds(config.DVRInfos.AlarmTimeLeft);
                 DateTime dateTimeEnd = AlarmTime.AddSeconds(config.DVRInfos.AlarmTimeRight);
 
                 AlarmSetingInfo alarmSetingInfoEntity =new AlarmSetingInfo();
-                switch (channelAlarmModel.Level)
+                switch (alarmConvertEntity.AlarmLevel)
                 {
                     //一级警报
                     case 1:
@@ -528,7 +637,7 @@ namespace ATIAN.Middleware.NVR
                         for (int j = 0; j < nvrChannelInfoList.Count; j++)
                         {
                             DateTime fileDateTimeName = DateTime.Now;
-                            DownloadByTime(dateTimeStart, dateTimeEnd, nvrChannelInfoList[j].NVRSerialNo, nvrChannelInfoList[j].NVRChannelNo, channelAlarmModel.SensorID, channelAlarmModel.ChannelID, fileDateTimeName);
+                            DownloadByTime(dateTimeStart, dateTimeEnd, nvrChannelInfoList[j].NVRSerialNo, nvrChannelInfoList[j].NVRChannelNo, deviceInfoEntity.SensorID, fileDateTimeName);
                             Thread.Sleep(1000);
                         }
 
@@ -539,7 +648,7 @@ namespace ATIAN.Middleware.NVR
                         for (int j = 0; j < nvrChannelInfoList.Count; j++)
                         {
                             DateTime fileDateTimeName = DateTime.Now;
-                            DownloadByTime(dateTimeStart, dateTimeEnd, nvrChannelInfoList[j].NVRSerialNo, nvrChannelInfoList[j].NVRChannelNo, channelAlarmModel.SensorID, channelAlarmModel.ChannelID, fileDateTimeName);
+                            DownloadByTime(dateTimeStart, dateTimeEnd, nvrChannelInfoList[j].NVRSerialNo, nvrChannelInfoList[j].NVRChannelNo, deviceInfoEntity.SensorID, fileDateTimeName);
                             Thread.Sleep(1000);
                         }
                         break;
@@ -549,7 +658,7 @@ namespace ATIAN.Middleware.NVR
                         for (int j = 0; j < nvrChannelInfoList.Count; j++)
                         {
                             DateTime fileDateTimeName = DateTime.Now;
-                            DownloadByTime(dateTimeStart, dateTimeEnd, nvrChannelInfoList[j].NVRSerialNo, nvrChannelInfoList[j].NVRChannelNo, channelAlarmModel.SensorID, channelAlarmModel.ChannelID, fileDateTimeName);
+                            DownloadByTime(dateTimeStart, dateTimeEnd, nvrChannelInfoList[j].NVRSerialNo, nvrChannelInfoList[j].NVRChannelNo, deviceInfoEntity.SensorID, fileDateTimeName);
                             Thread.Sleep(1000);
                         }
                         break;
@@ -561,10 +670,12 @@ namespace ATIAN.Middleware.NVR
         /// <summary>
         /// 获取通道信息
         /// </summary>
-        static List<NVRChannelInfo> GetNVRChannelInfo(string SensorID, int ChannelID)
+        static List<NVRChannelInfo> GetNVRChannelInfo(string deviceID)
         {
             List<NVRChannelInfo> nvrChannelInfoList = new List<NVRChannelInfo>();
-            string deviceID = APIInvoke.Instance().GetDeviceInfo(SensorID);
+
+          
+           // string deviceID = APIInvoke.Instance().GetDeviceInfo(SensorID);
             if (!string.IsNullOrEmpty(deviceID))
             {
                 nvrChannelInfoList = APIInvoke.Instance().GetNvrChannelInfo(deviceID);
