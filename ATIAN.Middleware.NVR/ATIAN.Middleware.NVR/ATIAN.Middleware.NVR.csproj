@@ -103,6 +103,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Http\AlarmSeting.cs" />
     <Compile Include="Http\APIInvoke.cs" />
     <Compile Include="Http\ApiSettings.cs" />
     <Compile Include="Http\Config.cs" />

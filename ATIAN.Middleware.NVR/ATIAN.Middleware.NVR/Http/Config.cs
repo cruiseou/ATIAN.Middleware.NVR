@@ -23,8 +23,20 @@ namespace ATIAN.Middleware.NVR.Http
         [JsonProperty("NVRConfig")]
         public DVRInfo DVRInfos { get; set; }
 
+
+        /// <summary>
+        /// 
+        /// </summary>
         [JsonProperty("fileToUploadConfig")]
         public FileSeting FileSeting { get; set; }
+
+
+        /// <summary>
+        /// 警报过滤设置
+        /// </summary>
+        [JsonProperty("AlarmSeting")]
+
+        public AlarmSeting AlarmSetings { get; set; }
 
 
 
