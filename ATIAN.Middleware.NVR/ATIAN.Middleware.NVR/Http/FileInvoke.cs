@@ -55,17 +55,26 @@ namespace ATIAN.Middleware.NVR.Http
 
         public void UploadFile(string diskIndex, string filepath, string filename)
         {
-            ServicePointManager.ServerCertificateValidationCallback = (sender, cert, chain, error) =>
+            try
             {
-                return true;
-            };
-            string fileurl = fileSeting.fileToUploadapiUri + "/" + fileSeting.Uri.UploadFile +
-                             EncodeBase64("utf-8", filepath) + "/" +
-                             filename + "?fileType=mp4";
+                ServicePointManager.ServerCertificateValidationCallback = (sender, cert, chain, error) =>
+                {
+                    return true;
+                };
+                string fileurl = fileSeting.fileToUploadapiUri + "/" + fileSeting.Uri.UploadFile +
+                                 EncodeBase64("utf-8", filepath) + "/" +
+                                 filename + "?fileType=mp4";
 
-            HttpClient resClient = new HttpClient();
-            var result = resClient.GetAsync(fileurl);
-            Console.WriteLine(result.Result.Content.ReadAsStringAsync().Result);
+                HttpClient resClient = new HttpClient();
+                var result = resClient.GetAsync(fileurl);
+                Console.WriteLine(result.Result.Content.ReadAsStringAsync().Result);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+              
+            }
+          
         }
     }
 }

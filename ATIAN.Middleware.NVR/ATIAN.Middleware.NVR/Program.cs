@@ -116,6 +116,8 @@ namespace ATIAN.Middleware.NVR
                 Thread.Sleep(3000);
                 Environment.Exit(0);
             }
+
+            ThreadPool.SetMaxThreads(1, 20);
             APIInvoke.Instance().Init(config.ApiSettings);
 
             FileInvoke.Instance().Init(config.FileSeting);
@@ -126,7 +128,8 @@ namespace ATIAN.Middleware.NVR
             alarmSetingInfoLevelTowEntity = config.AlarmSetings.AlarmSetings.Where(o => o.Level == 2).SingleOrDefault();
             alarmSetingInfoLevelThreeEntity = config.AlarmSetings.AlarmSetings.Where(o => o.Level == 3).SingleOrDefault();
             //初始化队列
-            AlarmConvertEntityListQueue=new Queue<AlarmConvertEntity>();
+            AlarmConvertEntityListQueue = new Queue<AlarmConvertEntity>();
+            alarmConvertEntitydictionary = new ConcurrentDictionary<float, AlarmConvertEntity>();
 
             StartMqttService();
 
@@ -241,20 +244,17 @@ namespace ATIAN.Middleware.NVR
 
                 if (model.AlarmLevel > -1)
                 {
+                    //警报点是否在开始和结束末端
                     if (model.AlarmLocation < config.AlarmSetings.Endlength && model.AlarmLocation > config.AlarmSetings.FrontLength)
                     {
-                        ExistToDownload(model);
+                        InsertToNVRDownloadQueue(model);
+                        //ExistToDownload(model);
                     }
 
                 }
-
-
-
             }
 
         }
-
-
 
 
 
@@ -476,7 +476,7 @@ namespace ATIAN.Middleware.NVR
         {
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("-----------------------------------------------------------");
-            Console.WriteLine(DateTime.Now.ToString() + ":开始下载视频信息");
+            Console.WriteLine(DateTime.Now.ToString() + ":开始下载设备号为："+ NVRSerialNo + "的第"+ NVRChannelNo+ "通道的视频信息");
             Thread.Sleep(1000);
             if (m_lDownHandle >= 0)
             {
@@ -626,8 +626,6 @@ namespace ATIAN.Middleware.NVR
                 {
                     // ExistToDownload(e.DataItems[j]);
                 }
-
-
             }
         }
 
@@ -645,24 +643,68 @@ namespace ATIAN.Middleware.NVR
         {
             if (alarmConvertEntitydictionary.Count > 0)
             {
-
-                for (int j = 0; j < alarmConvertEntitydictionary.Count; j++)
+                for (int j = 0; j < alarmConvertEntitydictionary.ToList().Count; j++)
                 {
-
+                    AlarmConvertEntity entity = alarmConvertEntitydictionary.ToList()[j].Value;
                     switch (alarmConvertEntity.AlarmLevel)
                     {
                         case 1:
+                            // 判断是否在中心点范围内
+                            if (IsInCenter(alarmSetingInfoLevelOneEntity, entity.AlarmLocation, alarmConvertEntity.AlarmLocation))
+                            {
+                                //判断警报时间是否在间隔时间范围内
+                                if (alarmConvertEntity.AlarmTimestamp > entity.AlarmTimestamp.AddMinutes((double)alarmSetingInfoLevelOneEntity.IntervalTime))
+                                {//处理字典
+                                    alarmConvertEntitydictionary.TryUpdate(entity.AlarmLocation, alarmConvertEntity, entity);
+                                    //处理队列
+                                    AlarmConvertEntityListQueue.Enqueue(alarmConvertEntity);
+                                }
 
-
-
+                            }
+                            else
+                            {
+                                alarmConvertEntitydictionary.TryAdd(alarmConvertEntity.AlarmLocation, alarmConvertEntity);
+                                AlarmConvertEntityListQueue.Enqueue(alarmConvertEntity);
+                            }
                             break;
                         case 2:
 
+                            if (IsInCenter(alarmSetingInfoLevelOneEntity, entity.AlarmLocation, alarmConvertEntity.AlarmLocation))
+                            {
+                                //判断警报时间是否在间隔时间范围内
+                                if (alarmConvertEntity.AlarmTimestamp > entity.AlarmTimestamp.AddMinutes((double)alarmSetingInfoLevelOneEntity.IntervalTime))
+                                {//处理字典
+                                    alarmConvertEntitydictionary.TryUpdate(entity.AlarmLocation, alarmConvertEntity, entity);
+                                    //处理队列
+                                    AlarmConvertEntityListQueue.Enqueue(alarmConvertEntity);
+                                }
+
+                            }
+                            else
+                            {
+                                alarmConvertEntitydictionary.TryAdd(alarmConvertEntity.AlarmLocation, alarmConvertEntity);
+                                AlarmConvertEntityListQueue.Enqueue(alarmConvertEntity);
+                            }
                             break;
                         case 3:
 
-                            break;
+                            if (IsInCenter(alarmSetingInfoLevelOneEntity, entity.AlarmLocation, alarmConvertEntity.AlarmLocation))
+                            {
+                                //判断警报时间是否在间隔时间范围内
+                                if (alarmConvertEntity.AlarmTimestamp > entity.AlarmTimestamp.AddMinutes((double)alarmSetingInfoLevelOneEntity.IntervalTime))
+                                {//处理字典
+                                    alarmConvertEntitydictionary.TryUpdate(entity.AlarmLocation, alarmConvertEntity, entity);
+                                    //处理队列
+                                    AlarmConvertEntityListQueue.Enqueue(alarmConvertEntity);
+                                }
 
+                            }
+                            else
+                            {
+                                alarmConvertEntitydictionary.TryAdd(alarmConvertEntity.AlarmLocation, alarmConvertEntity);
+                                AlarmConvertEntityListQueue.Enqueue(alarmConvertEntity);
+                            }
+                            break;
                     }
 
                 }
@@ -671,8 +713,28 @@ namespace ATIAN.Middleware.NVR
             else
             {
                 alarmConvertEntitydictionary.TryAdd(alarmConvertEntity.AlarmLocation, alarmConvertEntity);
+
+                AlarmConvertEntityListQueue.Enqueue(alarmConvertEntity);
             }
 
+            ExecuteDownload();
+        }
+
+        /// <summary>
+        /// 判断是否在中心点
+        /// </summary>
+        /// <param name="alarmSetingInfo"></param>
+        /// <param name="oldCenter"></param>
+        /// <param name="newCenter"></param>
+        /// <returns> true 在中心点 false 不在中心点 </returns>
+        static bool IsInCenter(AlarmSetingInfo alarmSetingInfo, float oldCenter, float newCenter)
+        {
+            bool result = false;
+            if (newCenter < oldCenter + alarmSetingInfo.IntervalRight && newCenter > oldCenter - alarmSetingInfo.IntervalLeft)
+            {
+                result = true;
+            }
+            return result;
         }
 
 
@@ -684,63 +746,47 @@ namespace ATIAN.Middleware.NVR
         /// <param name="channelAlarmModel"></param>
         static void ExistToDownload(AlarmConvertEntity alarmConvertEntity)//ExistToDownload(ATIAN.Common.MQTTLib.Protocol.DFVS.ChannelAlarmModel channelAlarmModel)
         {
-
+          //  AlarmConvertEntity alarmConvertEntity = (AlarmConvertEntity)InvalidComObjectException;
             DeviceInfoEntity deviceInfoEntity = APIInvoke.Instance().GetDeviceInfoEntiy(alarmConvertEntity.DeviceID);
             List<NVRChannelInfo> nvrChannelInfoList = GetNVRChannelInfo(alarmConvertEntity.DeviceID);
             if (nvrChannelInfoList != null && nvrChannelInfoList.Count > 0)
             {
-                DateTime AlarmTime = alarmConvertEntity.AlarmTime;
-
+                DateTime AlarmTime = alarmConvertEntity.AlarmTimestamp;
                 //录像开始时间
                 DateTime dateTimeStart = AlarmTime.AddSeconds(config.DVRInfos.AlarmTimeLeft);
-
                 //录像结束时间
                 DateTime dateTimeEnd = AlarmTime.AddSeconds(config.DVRInfos.AlarmTimeRight);
+                DateTime nowDateTime=DateTime.Now;
 
-                AlarmSetingInfo alarmSetingInfoEntity = new AlarmSetingInfo();
-                switch (alarmConvertEntity.AlarmLevel)
+           
+
+                if (nowDateTime < dateTimeEnd)
                 {
-                    //一级警报
-                    case 1:
-                        alarmSetingInfoEntity =
-                            config.AlarmSetings.AlarmSetings.Where(o => o.Level == 1).SingleOrDefault();
+                    int bar = 0;
+                    int timespen = (dateTimeEnd - nowDateTime).Seconds + 5;
+                    Console.WriteLine("录像时间小于当前时间，进程:" + Thread.CurrentThread.ManagedThreadId+ " 需要等待："+ timespen);
 
-
-                        for (int j = 0; j < nvrChannelInfoList.Count; j++)
-                        {
-                            DateTime fileDateTimeName = DateTime.Now;
-                            DownloadByTime(dateTimeStart, dateTimeEnd, nvrChannelInfoList[j].NVRSerialNo, nvrChannelInfoList[j].NVRChannelNo, deviceInfoEntity.SensorID, fileDateTimeName);
-                            Thread.Sleep(1000);
-                        }
-
-                        break;
-                    case 2:
-                        alarmSetingInfoEntity =
-                           config.AlarmSetings.AlarmSetings.Where(o => o.Level == 2).SingleOrDefault();
-                        for (int j = 0; j < nvrChannelInfoList.Count; j++)
-                        {
-                            DateTime fileDateTimeName = DateTime.Now;
-                            DownloadByTime(dateTimeStart, dateTimeEnd, nvrChannelInfoList[j].NVRSerialNo, nvrChannelInfoList[j].NVRChannelNo, deviceInfoEntity.SensorID, fileDateTimeName);
-                            Thread.Sleep(1000);
-                        }
-                        break;
-                    case 3:
-                        alarmSetingInfoEntity =
-                            config.AlarmSetings.AlarmSetings.Where(o => o.Level == 3).SingleOrDefault();
-                        for (int j = 0; j < nvrChannelInfoList.Count; j++)
-                        {
-                            DateTime fileDateTimeName = DateTime.Now;
-                            DownloadByTime(dateTimeStart, dateTimeEnd, nvrChannelInfoList[j].NVRSerialNo, nvrChannelInfoList[j].NVRChannelNo, deviceInfoEntity.SensorID, fileDateTimeName);
-                            Thread.Sleep(1000);
-                        }
-                        break;
-
+                    ProgressBar progressBar = new ProgressBar(Console.CursorLeft, Console.CursorTop, 50, ProgressBarType.Character);
+                    while (nowDateTime < dateTimeEnd.AddSeconds(10))
+                    {
+                     
+                        Thread.Sleep(10000);
+                        nowDateTime = DateTime.Now;
+                        bar = bar+10;
+                        progressBar.Dispaly(bar);
+                     
+                    }
+                    progressBar.Dispaly(100);
+                    Console.WriteLine();
+                }
+                
+                for (int j = 0; j < nvrChannelInfoList.Count; j++)
+                {
+                    DateTime fileDateTimeName = DateTime.Now;
+                    DownloadByTime(dateTimeStart, dateTimeEnd, nvrChannelInfoList[j].NVRSerialNo, nvrChannelInfoList[j].NVRChannelNo, deviceInfoEntity.SensorID, fileDateTimeName);
+                    Thread.Sleep(1000);
                 }
             }
-
-
-
-
         }
 
         /// <summary>
@@ -766,6 +812,30 @@ namespace ATIAN.Middleware.NVR
         static void UploadFile(string diskIndex, string filepath, string filename)
         {
             FileInvoke.Instance().UploadFile(diskIndex, filepath, filename);
+        }
+
+
+
+
+        static void ExecuteDownload()
+        {
+            ///循环检查，清除失效的警报
+            for (int j = 0; j < alarmConvertEntitydictionary.Count; j++)
+            {
+
+            }
+
+            //循环执行下载
+            if (AlarmConvertEntityListQueue.Count > 0)
+            {
+                for (int j = 0; j < AlarmConvertEntityListQueue.Count; j++)
+                {
+                    ExistToDownload( AlarmConvertEntityListQueue.Dequeue());
+
+                }
+            }
+
+
         }
 
     }
