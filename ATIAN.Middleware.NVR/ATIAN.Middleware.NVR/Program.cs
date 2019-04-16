@@ -22,7 +22,25 @@ namespace ATIAN.Middleware.NVR
 {
     class Program
     {
+        /// <summary>
+        /// 一级警报设置
+        /// </summary>
+        static AlarmSetingInfo alarmSetingInfoLevelOneEntity;
 
+        /// <summary>
+        /// 二级警报设置
+        /// </summary>
+        static AlarmSetingInfo alarmSetingInfoLevelTowEntity;
+        /// <summary>
+        /// 三级警报设置
+        /// </summary>
+        static AlarmSetingInfo alarmSetingInfoLevelThreeEntity;
+
+
+        /// <summary>
+        /// 队列
+        /// </summary>
+        private static Queue<AlarmConvertEntity> AlarmConvertEntityListQueue;
         static MOTTDFVS mqttService = null;
         static Int32 i = 0;
         static Int32 m_lUserID = -1;
@@ -41,7 +59,7 @@ namespace ATIAN.Middleware.NVR
         static uint dwAChanTotalNum = 0;
         static uint dwDChanTotalNum = 0;
 
-
+        static ConcurrentDictionary<float, AlarmConvertEntity> alarmConvertEntitydictionary;
 
         static Int32 m_lPlayHandle = -1;
 
@@ -101,14 +119,21 @@ namespace ATIAN.Middleware.NVR
             APIInvoke.Instance().Init(config.ApiSettings);
 
             FileInvoke.Instance().Init(config.FileSeting);
+
             SetConsoleCtrlHandler(cancelHandler, true);
 
+            alarmSetingInfoLevelOneEntity = config.AlarmSetings.AlarmSetings.Where(o => o.Level == 1).SingleOrDefault();
+            alarmSetingInfoLevelTowEntity = config.AlarmSetings.AlarmSetings.Where(o => o.Level == 2).SingleOrDefault();
+            alarmSetingInfoLevelThreeEntity = config.AlarmSetings.AlarmSetings.Where(o => o.Level == 3).SingleOrDefault();
+            //初始化队列
+            AlarmConvertEntityListQueue=new Queue<AlarmConvertEntity>();
 
             StartMqttService();
 
-
             InItNVR();
+
             ConnectNVR();
+
             Console.ReadKey();
         }
         /// <summary>
@@ -148,7 +173,7 @@ namespace ATIAN.Middleware.NVR
                 .Build());
             mqttClient.SubscribeAsync("DFVS/Alarms/Converted");
 
-      
+
 
             //Thread.Sleep(1000);
             //mqttService = new MOTTDFVS();
@@ -214,7 +239,7 @@ namespace ATIAN.Middleware.NVR
             {
                 var model = JsonConvert.DeserializeObject<AlarmConvertEntity>(payloadString);
 
-                if (model.AlarmLevel >-1)
+                if (model.AlarmLevel > -1)
                 {
                     if (model.AlarmLocation < config.AlarmSetings.Endlength && model.AlarmLocation > config.AlarmSetings.FrontLength)
                     {
@@ -222,11 +247,11 @@ namespace ATIAN.Middleware.NVR
                     }
 
                 }
-          
 
-           
+
+
             }
-            
+
         }
 
 
@@ -348,7 +373,7 @@ namespace ATIAN.Middleware.NVR
             {
                 iLastErr = CHCNetSDK.NET_DVR_GetLastError();
                 str1 = "NET_DVR_GET_IPPARACFG_V40 failed, error code= " + iLastErr; //获取IP资源配置信息失败，输出错误号
-             
+
             }
             else
             {
@@ -417,7 +442,7 @@ namespace ATIAN.Middleware.NVR
                     str2 = "online"; //通道在线
             }
 
-            
+
         }
 
         static void ListAnalogChannel(Int32 iChanNo, byte byEnable)
@@ -434,7 +459,7 @@ namespace ATIAN.Middleware.NVR
                 str2 = "Enabled"; //通道处于启用状态
             }
 
-          
+
         }
 
         /// <summary>
@@ -461,7 +486,7 @@ namespace ATIAN.Middleware.NVR
             }
 
             CHCNetSDK.NET_DVR_PLAYCOND struDownPara = new CHCNetSDK.NET_DVR_PLAYCOND();
-            struDownPara.dwChannel = (uint)iChannelNum[NVRChannelNo-1];// (uint)iChannelNum[chanleNumber]; //通道号 Channel number  
+            struDownPara.dwChannel = (uint)iChannelNum[NVRChannelNo - 1];// (uint)iChannelNum[chanleNumber]; //通道号 Channel number  
 
             //设置下载的开始时间 Set the starting time
             struDownPara.struStartTime.dwYear = (uint)dateTimeStart.Year;
@@ -490,7 +515,7 @@ namespace ATIAN.Middleware.NVR
 
             //string VideoFileName = filename.ToString("yyyy-MM-dd HH:mm:ss:ff").Replace('-', ' ').Replace(':', ' ').Replace(@" ", "") + "_" + struDownPara.dwChannel + ".mp4";
             //录像文件保存路径和文件名 the path and file name to save      
-            string fullpath = ExistFolder(filename) + "\\" + name.ToString()+".mp4";
+            string fullpath = ExistFolder(filename) + "\\" + name.ToString() + ".mp4";
             //按时间下载 Download by time
             m_lDownHandle = CHCNetSDK.NET_DVR_GetFileByTime_V40(m_lUserID, fullpath, ref struDownPara);
             if (m_lDownHandle < 0)
@@ -542,8 +567,8 @@ namespace ATIAN.Middleware.NVR
             string diskIndex = fullpath.Split(':')[0].TrimEnd();
 
             string[] arraypath = fullpath.Split('\\');
-            string directoryBase = arraypath[3].TrimEnd()+"\\"+ arraypath[4].TrimEnd() + "\\";
-            
+            string directoryBase = arraypath[3].TrimEnd() + "\\" + arraypath[4].TrimEnd() + "\\";
+
 
 
 
@@ -599,14 +624,57 @@ namespace ATIAN.Middleware.NVR
                 //是否在报警的光纤长度内
                 if (e.DataItems[j].CenterPosition < config.AlarmSetings.Endlength && e.DataItems[j].CenterPosition > config.AlarmSetings.FrontLength)
                 {
-                   // ExistToDownload(e.DataItems[j]);
+                    // ExistToDownload(e.DataItems[j]);
                 }
 
-               
+
             }
         }
 
-      //  private ConcurrentDictionary<int, ApiAlarmEntity> _alarmdictionary;
+        /// <summary>
+        /// 插入要执行截取视屏的队列
+        /// 1.判断警报中心点是否在长度区间范围内
+        /// 1.1 在长度区间范围内
+        ///     1.1.1 判断是否在时间范围内
+        ///             是 不做任何操作
+        ///             否 更新当前警报信息，向队列中插入一条
+        /// 1.2 不在长度区间范围内
+        ///     1.2.1 数组中新增一条，向队列中插入一条
+        /// </summary>
+        static void InsertToNVRDownloadQueue(AlarmConvertEntity alarmConvertEntity)
+        {
+            if (alarmConvertEntitydictionary.Count > 0)
+            {
+
+                for (int j = 0; j < alarmConvertEntitydictionary.Count; j++)
+                {
+
+                    switch (alarmConvertEntity.AlarmLevel)
+                    {
+                        case 1:
+
+
+
+                            break;
+                        case 2:
+
+                            break;
+                        case 3:
+
+                            break;
+
+                    }
+
+                }
+
+            }
+            else
+            {
+                alarmConvertEntitydictionary.TryAdd(alarmConvertEntity.AlarmLocation, alarmConvertEntity);
+            }
+
+        }
+
 
 
 
@@ -616,22 +684,26 @@ namespace ATIAN.Middleware.NVR
         /// <param name="channelAlarmModel"></param>
         static void ExistToDownload(AlarmConvertEntity alarmConvertEntity)//ExistToDownload(ATIAN.Common.MQTTLib.Protocol.DFVS.ChannelAlarmModel channelAlarmModel)
         {
+
             DeviceInfoEntity deviceInfoEntity = APIInvoke.Instance().GetDeviceInfoEntiy(alarmConvertEntity.DeviceID);
             List<NVRChannelInfo> nvrChannelInfoList = GetNVRChannelInfo(alarmConvertEntity.DeviceID);
             if (nvrChannelInfoList != null && nvrChannelInfoList.Count > 0)
             {
                 DateTime AlarmTime = alarmConvertEntity.AlarmTime;
 
+                //录像开始时间
                 DateTime dateTimeStart = AlarmTime.AddSeconds(config.DVRInfos.AlarmTimeLeft);
+
+                //录像结束时间
                 DateTime dateTimeEnd = AlarmTime.AddSeconds(config.DVRInfos.AlarmTimeRight);
 
-                AlarmSetingInfo alarmSetingInfoEntity =new AlarmSetingInfo();
+                AlarmSetingInfo alarmSetingInfoEntity = new AlarmSetingInfo();
                 switch (alarmConvertEntity.AlarmLevel)
                 {
                     //一级警报
                     case 1:
                         alarmSetingInfoEntity =
-                            config.AlarmSetings.AlarmSetings.Where(o => o.Level == 2).SingleOrDefault();
+                            config.AlarmSetings.AlarmSetings.Where(o => o.Level == 1).SingleOrDefault();
 
 
                         for (int j = 0; j < nvrChannelInfoList.Count; j++)
@@ -643,8 +715,8 @@ namespace ATIAN.Middleware.NVR
 
                         break;
                     case 2:
-                         alarmSetingInfoEntity =
-                            config.AlarmSetings.AlarmSetings.Where(o => o.Level == 2).SingleOrDefault();
+                        alarmSetingInfoEntity =
+                           config.AlarmSetings.AlarmSetings.Where(o => o.Level == 2).SingleOrDefault();
                         for (int j = 0; j < nvrChannelInfoList.Count; j++)
                         {
                             DateTime fileDateTimeName = DateTime.Now;
@@ -654,7 +726,7 @@ namespace ATIAN.Middleware.NVR
                         break;
                     case 3:
                         alarmSetingInfoEntity =
-                            config.AlarmSetings.AlarmSetings.Where(o => o.Level == 1).SingleOrDefault();
+                            config.AlarmSetings.AlarmSetings.Where(o => o.Level == 3).SingleOrDefault();
                         for (int j = 0; j < nvrChannelInfoList.Count; j++)
                         {
                             DateTime fileDateTimeName = DateTime.Now;
@@ -665,6 +737,10 @@ namespace ATIAN.Middleware.NVR
 
                 }
             }
+
+
+
+
         }
 
         /// <summary>
@@ -673,9 +749,7 @@ namespace ATIAN.Middleware.NVR
         static List<NVRChannelInfo> GetNVRChannelInfo(string deviceID)
         {
             List<NVRChannelInfo> nvrChannelInfoList = new List<NVRChannelInfo>();
-
-          
-           // string deviceID = APIInvoke.Instance().GetDeviceInfo(SensorID);
+            // string deviceID = APIInvoke.Instance().GetDeviceInfo(SensorID);
             if (!string.IsNullOrEmpty(deviceID))
             {
                 nvrChannelInfoList = APIInvoke.Instance().GetNvrChannelInfo(deviceID);
@@ -689,9 +763,9 @@ namespace ATIAN.Middleware.NVR
         /// <param name="diskIndex"></param>
         /// <param name="filepath"></param>
         /// <param name="filename"></param>
-        static  void UploadFile(string diskIndex, string filepath, string filename)
+        static void UploadFile(string diskIndex, string filepath, string filename)
         {
-            FileInvoke.Instance().UploadFile( diskIndex,  filepath, filename);
+            FileInvoke.Instance().UploadFile(diskIndex, filepath, filename);
         }
 
     }
