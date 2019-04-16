@@ -790,7 +790,7 @@ namespace ATIAN.Middleware.NVR
                 {
                     DateTime fileDateTimeName = DateTime.Now;
                     DownloadByTime(dateTimeStart, dateTimeEnd, nvrChannelInfoList[j].NVRSerialNo, nvrChannelInfoList[j].NVRChannelNo, deviceInfoEntity.SensorID, fileDateTimeName);
-                    Thread.Sleep(1000);
+                    Thread.Sleep(10000);
                 }
             }
         }
