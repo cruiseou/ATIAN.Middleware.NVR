@@ -746,7 +746,7 @@ namespace ATIAN.Middleware.NVR
         /// <param name="channelAlarmModel"></param>
         static void ExistToDownload(AlarmConvertEntity alarmConvertEntity)//ExistToDownload(ATIAN.Common.MQTTLib.Protocol.DFVS.ChannelAlarmModel channelAlarmModel)
         {
-          //  AlarmConvertEntity alarmConvertEntity = (AlarmConvertEntity)InvalidComObjectException;
+        
             DeviceInfoEntity deviceInfoEntity = APIInvoke.Instance().GetDeviceInfoEntiy(alarmConvertEntity.DeviceID);
             List<NVRChannelInfo> nvrChannelInfoList = GetNVRChannelInfo(alarmConvertEntity.DeviceID);
             if (nvrChannelInfoList != null && nvrChannelInfoList.Count > 0)
@@ -778,6 +778,12 @@ namespace ATIAN.Middleware.NVR
                     }
                     progressBar.Dispaly(100);
                     Console.WriteLine();
+                }
+
+                else
+                {
+                    Console.WriteLine("录像下载缓冲中......");
+                    Thread.Sleep(10000);
                 }
                 
                 for (int j = 0; j < nvrChannelInfoList.Count; j++)
