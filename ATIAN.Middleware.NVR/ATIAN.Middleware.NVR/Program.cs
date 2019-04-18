@@ -834,8 +834,11 @@ namespace ATIAN.Middleware.NVR
             //循环执行下载
             if (AlarmConvertEntityListQueue.Count > 0)
             {
+                Console.WriteLine("开始下载录像总共" + AlarmConvertEntityListQueue.Count+"个录像需要下载");
+
                 for (int j = 0; j < AlarmConvertEntityListQueue.Count; j++)
                 {
+                    Console.WriteLine("开始下载第"+j+"个录像");
                     ExistToDownload( AlarmConvertEntityListQueue.Dequeue());
 
                 }
