@@ -40,7 +40,7 @@ namespace ATIAN.Middleware.NVR
         /// <summary>
         /// 队列
         /// </summary>
-        private static Queue<AlarmConvertEntity> AlarmConvertEntityListQueue;
+        private static ConcurrentQueue<AlarmConvertEntity> AlarmConvertEntityListQueue;
         static MOTTDFVS mqttService = null;
         static Int32 i = 0;
         static Int32 m_lUserID = -1;
@@ -128,7 +128,7 @@ namespace ATIAN.Middleware.NVR
             alarmSetingInfoLevelTowEntity = config.AlarmSetings.AlarmSetings.Where(o => o.Level == 2).SingleOrDefault();
             alarmSetingInfoLevelThreeEntity = config.AlarmSetings.AlarmSetings.Where(o => o.Level == 3).SingleOrDefault();
             //初始化队列
-            AlarmConvertEntityListQueue = new Queue<AlarmConvertEntity>();
+            AlarmConvertEntityListQueue = new ConcurrentQueue<AlarmConvertEntity>();
             alarmConvertEntitydictionary = new ConcurrentDictionary<float, AlarmConvertEntity>();
 
             StartMqttService();
@@ -171,7 +171,7 @@ namespace ATIAN.Middleware.NVR
                 .WithClientOptions(new MqttClientOptionsBuilder()
                     .WithClientId(Guid.NewGuid().ToString())
                     .WithCleanSession(true)
-                    .WithTcpServer("127.0.0.1", 1883)
+                    .WithTcpServer("192.168.0.2", 1883)
                     .Build())
                 .Build());
             mqttClient.SubscribeAsync("DFVS/Alarms/Converted");
@@ -476,7 +476,7 @@ namespace ATIAN.Middleware.NVR
         {
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("-----------------------------------------------------------");
-            Console.WriteLine(DateTime.Now.ToString() + ":开始下载设备号为："+ NVRSerialNo + "的第"+ NVRChannelNo+ "通道的视频信息");
+            Console.WriteLine(DateTime.Now.ToString() + ":开始下载设备号为：" + NVRSerialNo + "的第" + NVRChannelNo + "通道的视频信息");
             Thread.Sleep(1000);
             if (m_lDownHandle >= 0)
             {
@@ -746,7 +746,12 @@ namespace ATIAN.Middleware.NVR
         /// <param name="channelAlarmModel"></param>
         static void ExistToDownload(AlarmConvertEntity alarmConvertEntity)//ExistToDownload(ATIAN.Common.MQTTLib.Protocol.DFVS.ChannelAlarmModel channelAlarmModel)
         {
-        
+            if (string.IsNullOrEmpty(alarmConvertEntity.DeviceID))
+            {
+                Console.WriteLine("未找到相关设备信息");
+                return;
+
+            }
             DeviceInfoEntity deviceInfoEntity = APIInvoke.Instance().GetDeviceInfoEntiy(alarmConvertEntity.DeviceID);
             List<NVRChannelInfo> nvrChannelInfoList = GetNVRChannelInfo(alarmConvertEntity.DeviceID);
             if (nvrChannelInfoList != null && nvrChannelInfoList.Count > 0)
@@ -756,25 +761,26 @@ namespace ATIAN.Middleware.NVR
                 DateTime dateTimeStart = AlarmTime.AddSeconds(config.DVRInfos.AlarmTimeLeft);
                 //录像结束时间
                 DateTime dateTimeEnd = AlarmTime.AddSeconds(config.DVRInfos.AlarmTimeRight);
-                DateTime nowDateTime=DateTime.Now;
+                dateTimeEnd = dateTimeEnd.AddSeconds(10);
+                DateTime nowDateTime = DateTime.Now;
 
-           
+
 
                 if (nowDateTime < dateTimeEnd)
                 {
                     int bar = 0;
-                    int timespen = (dateTimeEnd - nowDateTime).Seconds + 5;
-                    Console.WriteLine("录像时间小于当前时间，进程:" + Thread.CurrentThread.ManagedThreadId+ " 需要等待："+ timespen);
+                    int timespen = (dateTimeEnd - nowDateTime).Seconds;
+                    Console.WriteLine("录像时间小于当前时间，进程:" + Thread.CurrentThread.ManagedThreadId + " 需要等待：" + timespen + "秒");
 
                     ProgressBar progressBar = new ProgressBar(Console.CursorLeft, Console.CursorTop, 50, ProgressBarType.Character);
-                    while (nowDateTime < dateTimeEnd.AddSeconds(10))
+                    while (nowDateTime < dateTimeEnd)
                     {
-                     
+
                         Thread.Sleep(10000);
                         nowDateTime = DateTime.Now;
-                        bar = bar+10;
+                        bar = bar + 10;
                         progressBar.Dispaly(bar);
-                     
+
                     }
                     progressBar.Dispaly(100);
                     Console.WriteLine();
@@ -783,14 +789,15 @@ namespace ATIAN.Middleware.NVR
                 else
                 {
                     Console.WriteLine("录像下载缓冲中......");
-                    Thread.Sleep(10000);
+
                 }
-                
+
                 for (int j = 0; j < nvrChannelInfoList.Count; j++)
                 {
+                    Thread.Sleep(10000);
                     DateTime fileDateTimeName = DateTime.Now;
                     DownloadByTime(dateTimeStart, dateTimeEnd, nvrChannelInfoList[j].NVRSerialNo, nvrChannelInfoList[j].NVRChannelNo, deviceInfoEntity.SensorID, fileDateTimeName);
-                    Thread.Sleep(10000);
+
                 }
             }
         }
@@ -823,24 +830,30 @@ namespace ATIAN.Middleware.NVR
 
 
 
+        /// <summary>
+        /// 执行下载
+        /// </summary>
         static void ExecuteDownload()
         {
             ///循环检查，清除失效的警报
-            for (int j = 0; j < alarmConvertEntitydictionary.Count; j++)
-            {
+            //for (int j = 0; j < alarmConvertEntitydictionary.Count; j++)
+            //{
 
-            }
+            //}
 
             //循环执行下载
             if (AlarmConvertEntityListQueue.Count > 0)
             {
-                Console.WriteLine("开始下载录像总共" + AlarmConvertEntityListQueue.Count+"个录像需要下载");
+                Console.WriteLine("开始下载录像总共" + AlarmConvertEntityListQueue.Count + "个录像需要下载");
 
                 for (int j = 0; j < AlarmConvertEntityListQueue.Count; j++)
                 {
-                    Console.WriteLine("开始下载第"+j+"个录像");
-                    ExistToDownload( AlarmConvertEntityListQueue.Dequeue());
-
+                    AlarmConvertEntity entity;
+                    if (AlarmConvertEntityListQueue.TryDequeue(out entity))
+                    {
+                        Console.WriteLine("开始下载第" + j + "个录像");
+                        ExistToDownload(entity);
+                    }
                 }
             }
 
