@@ -1,4 +1,5 @@
-﻿using ATIAN.Middleware.NVR.NVRSDK;
+﻿using ATIAN.Middleware.NVR.Entity;
+using ATIAN.Middleware.NVR.NVRSDK;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -40,6 +41,8 @@ namespace ATIAN.Middleware.NVR.Http
 
 
 
+        [JsonProperty("mqtt")]
+        public MqttEntity Mqttseting { get; set; }
 
     }
 }

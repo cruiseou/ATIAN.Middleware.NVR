@@ -82,7 +82,7 @@ namespace ATIAN.Middleware.NVR.Http
         /// </summary>
         /// <param name="deviceID"></param>
         /// <returns></returns>
-        public List<NVRChannelInfo> GetNvrChannelInfo(string deviceID)
+        public async  Task< List<NVRChannelInfo> > GetNvrChannelInfo(string deviceID)
         {
             List<NVRChannelInfo> nvrChannelInfoList = new List<NVRChannelInfo>();
             var request = new RestRequest(apiSettings.Uri.NVRIPCInfo+"/"+ deviceID, Method.GET);
@@ -115,7 +115,12 @@ namespace ATIAN.Middleware.NVR.Http
                 
             }
 
-            deviceInfoEntity = deviceInfo.Uri.Where(o => o.DeviceID == deviceID).SingleOrDefault();
+            if (deviceInfo.Uri!=null)
+            {
+                deviceInfoEntity = deviceInfo.Uri.Where(o => o.DeviceID == deviceID).SingleOrDefault();
+            }
+
+            
 
             return deviceInfoEntity;
 

@@ -104,7 +104,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Entity\AlarmConvertEntity.cs" />
+    <Compile Include="Entity\CenterEntity.cs" />
     <Compile Include="Entity\DeviceInfoEntity.cs" />
+    <Compile Include="Entity\MqttEntity.cs" />
+    <Compile Include="Entity\NVRChannleEntity.cs" />
     <Compile Include="Http\AlarmSeting.cs" />
     <Compile Include="Http\APIInvoke.cs" />
     <Compile Include="Http\ApiSettings.cs" />
