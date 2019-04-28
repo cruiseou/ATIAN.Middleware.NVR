@@ -1,4 +1,5 @@
 ﻿using ATIAN.Middleware.NVR.Entity;
+using ATIAN.Middleware.NVR.Help;
 using ATIAN.Middleware.NVR.Http;
 using ATIAN.Middleware.NVR.MQTT;
 using ATIAN.Middleware.NVR.NVRSDK;
@@ -17,6 +18,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+
 
 namespace ATIAN.Middleware.NVR
 {
@@ -102,6 +104,7 @@ namespace ATIAN.Middleware.NVR
                     break;
                 case 2:
                     Console.WriteLine("2工具被强制关闭");//按控制台关闭按钮关闭  
+                    Log4NetHelper.WriteInfoLog("系统被强制关闭");
                     break;
             }
             Console.ReadLine();
@@ -114,12 +117,18 @@ namespace ATIAN.Middleware.NVR
         /// <param name="args"></param>
         static void Main(string[] args)
         {
+
+            Log4NetHelper.InitLog4Net(Environment.CurrentDirectory+@"\log4net.config");
+
+            Log4NetHelper.WriteInfoLog("系统启动");
+
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("-----------------------------------------------------------");
             Console.WriteLine("-----------------------------------------------------------");
             Console.WriteLine("正在读取配置文件...");
             try
             {
+                Log4NetHelper.WriteInfoLog("开始读取配置文件");
                 var json = File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json"), Encoding.UTF8);
                 config = JsonConvert.DeserializeObject<Config>(json);//初始化API基础信息
                 Console.WriteLine("读取配置文件成功！");
@@ -127,31 +136,38 @@ namespace ATIAN.Middleware.NVR
             }
             catch (Exception ex)
             {
+                Log4NetHelper.WriteErrorLog("读取配置文件出错"+ex.ToString());
                 Console.WriteLine("读取配置文件出错，3秒后自动退出！");
                 Thread.Sleep(3000);
                 Environment.Exit(0);
             }
 
-            ThreadPool.SetMaxThreads(1, 20);
+            Log4NetHelper.WriteInfoLog("初始化平台接口");
             APIInvoke.Instance().Init(config.ApiSettings);
-
+            Log4NetHelper.WriteInfoLog("初始化文件上传平台接口");
             FileInvoke.Instance().Init(config.FileSeting);
 
             SetConsoleCtrlHandler(cancelHandler, true);
-
+            Log4NetHelper.WriteInfoLog("初始化一级警报过滤规则");
             alarmSetingInfoLevelOneEntity = config.AlarmSetings.AlarmSetings.Where(o => o.Level == 1).SingleOrDefault();
+            Log4NetHelper.WriteInfoLog("初始化二级警报过滤规则");
             alarmSetingInfoLevelTowEntity = config.AlarmSetings.AlarmSetings.Where(o => o.Level == 2).SingleOrDefault();
+            Log4NetHelper.WriteInfoLog("初始化三级警报过滤规则");
             alarmSetingInfoLevelThreeEntity = config.AlarmSetings.AlarmSetings.Where(o => o.Level == 3).SingleOrDefault();
             //初始化队列
+            Log4NetHelper.WriteInfoLog("初始化视频下载警报队列");
             AlarmConvertEntityListQueue = new ConcurrentQueue<AlarmConvertEntity>();
+            Log4NetHelper.WriteInfoLog("初始化警报接受消息字典");
             alarmConvertEntitydictionary = new ConcurrentDictionary<string, AlarmConvertEntity>();
+            Log4NetHelper.WriteInfoLog("初始化警报中心点列表");
             centerEntitiesList = new List<CenterEntity>();
-
+            Log4NetHelper.WriteInfoLog("初始化设备关联摄像头列表");
             nvrChannleEntities = new List<NVRChannleEntity>();
+            Log4NetHelper.WriteInfoLog("开始启动Mqtt服务");
             StartMqttService();
-
+            Log4NetHelper.WriteInfoLog("NVR设备SDK初始化");
             InItNVR();
-
+            Log4NetHelper.WriteInfoLog("NVR设备登录初始化");
             ConnectNVR();
 
             Console.ReadKey();
@@ -167,34 +183,46 @@ namespace ATIAN.Middleware.NVR
         static void StartMqttService()
         {
 
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("-----------------------------------------------------------");
-            Console.WriteLine(DateTime.Now.ToString() + ":开始启动Mqtt服务");
+            try
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("-----------------------------------------------------------");
+                Console.WriteLine(DateTime.Now.ToString() + ":开始启动Mqtt服务");
 
-            mqttClient = new MqttFactory().CreateManagedMqttClient();
-            //链接事件
-            mqttClient.Connected += MqttClient_Connected;
-            //断开链接事件
-            mqttClient.Disconnected += MqttClient_Disconnected;
-            //连接失败事件
-            mqttClient.ConnectingFailed += MqttClient_ConnectingFailed;
-            //订阅失败事件
-            mqttClient.SynchronizingSubscriptionsFailed += MqttClient_SynchronizingSubscriptionsFailed;
-            //数据接收事件
-            mqttClient.ApplicationMessageReceived += MqttClient_ApplicationMessageReceived;
+                mqttClient = new MqttFactory().CreateManagedMqttClient();
+                //链接事件
+                mqttClient.Connected += MqttClient_Connected;
+                //断开链接事件
+                mqttClient.Disconnected += MqttClient_Disconnected;
+                //连接失败事件
+                mqttClient.ConnectingFailed += MqttClient_ConnectingFailed;
+                //订阅失败事件
+                mqttClient.SynchronizingSubscriptionsFailed += MqttClient_SynchronizingSubscriptionsFailed;
+                //数据接收事件
+                mqttClient.ApplicationMessageReceived += MqttClient_ApplicationMessageReceived;
 
-            mqttClient.StartAsync(new ManagedMqttClientOptionsBuilder()
-                .WithAutoReconnectDelay(TimeSpan.FromSeconds(10))
-                .WithClientOptions(new MqttClientOptionsBuilder()
-                    .WithClientId(Guid.NewGuid().ToString())
-                    .WithCleanSession(true)
-                    .WithTcpServer(config.Mqttseting.mqttServerIP, config.Mqttseting.mqttServerPort)
-                    .Build())
-                .Build());
-            mqttClient.SubscribeAsync("DFVS/Alarms/Converted");
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine(DateTime.Now.ToString() + ":Mqtt服务启动成功");
-            Console.WriteLine("-----------------------------------------------------------");
+                mqttClient.StartAsync(new ManagedMqttClientOptionsBuilder()
+                    .WithAutoReconnectDelay(TimeSpan.FromSeconds(10))
+                    .WithClientOptions(new MqttClientOptionsBuilder()
+                        .WithClientId(Guid.NewGuid().ToString())
+                        .WithCleanSession(true)
+                        .WithTcpServer(config.Mqttseting.mqttServerIP, config.Mqttseting.mqttServerPort)
+                        .Build())
+                    .Build());
+                mqttClient.SubscribeAsync("DFVS/Alarms/Converted");
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine(DateTime.Now.ToString() + ":Mqtt服务启动成功");
+                Console.WriteLine("-----------------------------------------------------------");
+                Log4NetHelper.WriteInfoLog("Mqtt服务启动成功");
+            }
+            catch (Exception e)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine(e);
+                Log4NetHelper.WriteErrorLog("Mqtt服务启动失败："+e);
+                throw;
+            }
+           
         }
 
         /// <summary>
@@ -275,12 +303,14 @@ namespace ATIAN.Middleware.NVR
             {
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine(DateTime.Now.ToString() + "NET_DVR_Init error!");
+                Log4NetHelper.WriteErrorLog("NVR设备初始化失败");
             }
             else
             {
                 //保存SDK日志
                 CHCNetSDK.NET_DVR_SetLogToFile(3, "C:\\SdkLog\\", true);
                 iChannelNum = new int[96];
+                Log4NetHelper.WriteInfoLog("NVR设备初始化成功");
             }
 
         }
@@ -303,8 +333,9 @@ namespace ATIAN.Middleware.NVR
                     str1 = "NET_DVR_Login_V30 failed, error code= " + iLastErr; //登录失败，输出错误号
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine(DateTime.Now.ToString() + str1);
-
+                   
                     Console.ReadKey();
+                    Log4NetHelper.WriteErrorLog("NVR设备登录失败");
                 }
                 else
                 {
@@ -338,6 +369,7 @@ namespace ATIAN.Middleware.NVR
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.WriteLine(DateTime.Now.ToString() + ":NVR连接成功");
                     Console.WriteLine("-----------------------------------------------------------");
+                    Log4NetHelper.WriteInfoLog("NVR设备登录成功");
                 }
             }
             else
@@ -464,6 +496,7 @@ namespace ATIAN.Middleware.NVR
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("-----------------------------------------------------------");
             Console.WriteLine(DateTime.Now.ToString() + ":开始下载设备号为：" + NVRSerialNo + "的第" + NVRChannelNo + "通道的视频信息");
+            Log4NetHelper.WriteInfoLog("开始下载设备号为：" + NVRSerialNo + "的第" + NVRChannelNo + "通道的视频信息");
 
             Task.Delay(10000);
 
@@ -471,6 +504,7 @@ namespace ATIAN.Middleware.NVR
             {
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine(DateTime.Now.ToString() + ":" + "正在下载，请先停止下载");
+                Log4NetHelper.WriteErrorLog("正在下载，请先停止下载");
                 IsDown = true;
                 return;
             }
@@ -513,7 +547,7 @@ namespace ATIAN.Middleware.NVR
                 str = "NET_DVR_GetFileByTime_V40 failed, error code= " + iLastErr;
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine(DateTime.Now.ToString() + ":" + str);
-
+                Log4NetHelper.WriteErrorLog(str);
                 m_lDownHandle = -1; IsDown = true;
                 return;
             }
@@ -525,6 +559,7 @@ namespace ATIAN.Middleware.NVR
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine(DateTime.Now.ToString() + ":" + str);
                 m_lDownHandle = -1; IsDown = true;
+                Log4NetHelper.WriteErrorLog("下载控制失败,NET_DVR_PLAYSTART failed, error code= " + iLastErr);
                 return;
             }
             ProgressBar progressBar = new ProgressBar(Console.CursorLeft, Console.CursorTop, 50, ProgressBarType.Multicolor);
@@ -540,12 +575,15 @@ namespace ATIAN.Middleware.NVR
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine(DateTime.Now.ToString() + ":" + str);
                 m_lDownHandle = -1; IsDown = true;
+                Log4NetHelper.WriteErrorLog("下载控制失败,NET_DVR_StopGetFile failed, error code= " + iLastErr);
                 return;
             }
             if (CHCNetSDK.NET_DVR_GetDownloadPos(m_lDownHandle) == 200) //网络异常，下载失败
             {
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine(DateTime.Now.ToString() + ":" + "The downloading is abnormal for the abnormal network!"); IsDown = true;
+                Log4NetHelper.WriteErrorLog("下载控制失败,he downloading is abnormal for the abnormal network!");
+
                 m_lDownHandle = -1;
                 return;
             }
@@ -555,6 +593,8 @@ namespace ATIAN.Middleware.NVR
             Console.WriteLine();
             Console.WriteLine(DateTime.Now.ToString() + ":下载完成！！");
             Console.WriteLine("-----------------------------------------------------------");
+
+            Log4NetHelper.WriteInfoLog("下载完成!当前文件存储在："+ fullpath);
             string diskIndex = fullpath.Split(':')[0].TrimEnd();
             string[] arraypath = fullpath.Split('\\');
             string directoryBase = arraypath[3].TrimEnd() + "\\" + arraypath[4].TrimEnd() + "\\";
@@ -750,6 +790,7 @@ namespace ATIAN.Middleware.NVR
             {
                 Console.WriteLine();
                 Console.WriteLine("未找到相关设备信息");
+                Log4NetHelper.WriteErrorLog("DeviceID为空，中专服务异常");
                 IsDown = true;
                 return;
             }
@@ -759,6 +800,7 @@ namespace ATIAN.Middleware.NVR
                 Console.WriteLine();
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine("未从服务器找到相关设备信息"); IsDown = true;
+                Log4NetHelper.WriteErrorLog("未从API接口中获得相关设备的详细信息，请检查平台设备绑定信息");
                 return;
             }
             List<NVRChannelInfo> nvrChannelInfoList = GetNVRChannelInfo(alarmConvertEntity.DeviceID);
@@ -815,7 +857,7 @@ namespace ATIAN.Middleware.NVR
                         Console.WriteLine();
                         Console.ForegroundColor = ConsoleColor.Red;
                         Console.WriteLine("通道：" + ChannelNo + "不在线，无法连接设备，下载失败,请检查NVR与摄像头连接"); IsDown = true;
-
+                        Log4NetHelper.WriteErrorLog("通道：" + ChannelNo + "不在线，无法连接设备，下载失败,请检查NVR与摄像头连接");
                         return;
                     }
                     Thread.Sleep(3000);
@@ -826,6 +868,8 @@ namespace ATIAN.Middleware.NVR
                 Console.WriteLine();
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine("设备:" + alarmConvertEntity.DeviceID + "未关联NVR摄像头，请检查！！！"); IsDown = true;
+
+                Log4NetHelper.WriteErrorLog("设备:" + alarmConvertEntity.DeviceID + "未关联NVR摄像头，请检查！！！");
                 return;
             }
 

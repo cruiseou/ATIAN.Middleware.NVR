@@ -58,6 +58,9 @@
     <Reference Include="ATIAN.Middleware.DFVSensor">
       <HintPath>..\..\ATIAN-product-DTS-00002\src\ATIAN.Middleware.DFVSSensor\obj\Debug\netstandard2.0\ATIAN.Middleware.DFVSensor.dll</HintPath>
     </Reference>
+    <Reference Include="log4net, Version=2.0.8.0, Culture=neutral, PublicKeyToken=669e0ddf0bb1aa2a, processorArchitecture=MSIL">
+      <HintPath>..\packages\log4net.2.0.8\lib\net45-full\log4net.dll</HintPath>
+    </Reference>
     <Reference Include="Microsoft.Extensions.Configuration, Version=2.2.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Extensions.Configuration.2.2.0\lib\netstandard2.0\Microsoft.Extensions.Configuration.dll</HintPath>
     </Reference>
@@ -108,6 +111,7 @@
     <Compile Include="Entity\DeviceInfoEntity.cs" />
     <Compile Include="Entity\MqttEntity.cs" />
     <Compile Include="Entity\NVRChannleEntity.cs" />
+    <Compile Include="Help\Log4NetHelper.cs" />
     <Compile Include="Http\AlarmSeting.cs" />
     <Compile Include="Http\APIInvoke.cs" />
     <Compile Include="Http\ApiSettings.cs" />
@@ -125,8 +129,15 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="App.config" />
-    <None Include="appsettings.json" />
+    <None Include="App.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="log4net.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup />
