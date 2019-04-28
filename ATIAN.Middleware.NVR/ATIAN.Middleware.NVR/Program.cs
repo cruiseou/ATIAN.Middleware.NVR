@@ -921,6 +921,11 @@ namespace ATIAN.Middleware.NVR
         }
 
 
+
+        /// <summary>
+        ///清除字典 列表中的无效数据
+        /// </summary>
+        /// <returns></returns>
         static async Task ClearAlarmConvertEntitydictionaryAndCenterEntitiesList()
         {
             ///循环检查，清除失效的警报
