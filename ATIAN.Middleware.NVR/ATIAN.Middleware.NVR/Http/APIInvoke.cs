@@ -82,10 +82,10 @@ namespace ATIAN.Middleware.NVR.Http
         /// </summary>
         /// <param name="deviceID"></param>
         /// <returns></returns>
-        public async  Task< List<NVRChannelInfo> > GetNvrChannelInfo(string deviceID)
+        public List<NVRChannelInfo> GetNvrChannelInfo(string deviceID)
         {
             List<NVRChannelInfo> nvrChannelInfoList = new List<NVRChannelInfo>();
-            var request = new RestRequest(apiSettings.Uri.NVRIPCInfo+"/"+ deviceID, Method.GET);
+            var request = new RestRequest(apiSettings.Uri.NVRIPCInfo+ deviceID , Method.GET);
            var res =  _client.Execute(request);
             if ((int) res.StatusCode == 200)
             {
