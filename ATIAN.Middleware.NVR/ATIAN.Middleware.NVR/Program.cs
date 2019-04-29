@@ -284,8 +284,13 @@ namespace ATIAN.Middleware.NVR
                     //警报点是否在开始和结束末端
                     if (model.AlarmLocation < config.AlarmSetings.Endlength && model.AlarmLocation > config.AlarmSetings.FrontLength)
                     {
+                        Log4NetHelper.WriteInfoLog("接收到警报消息，设备主键："+model.DeviceID+" 警报中心位置："+model.AlarmLocation+",警报等级："+model.AlarmLevel+",警报发生时间："+model.AlarmTime+",警报更新时间："+model.AlarmTimestamp+"");
                         InsertToNVRDownloadQueue(model);
                         //ExistToDownload(model);
+                    }
+                    else
+                    {
+                           Log4NetHelper.WriteErrorLog("警报中心位置："+model.AlarmLocation+"超过起始忽略长度，予以过滤");
                     }
 
                 }
@@ -670,10 +675,15 @@ namespace ATIAN.Middleware.NVR
             }
             else
             {
+
+
+                Log4NetHelper.WriteInfoLog("向警报字典，警报中心点列表，NVR视频截取队列中加入数据，设备主键：" + alarmConvertEntity.DeviceID + " 警报中心位置：" + alarmConvertEntity.AlarmLocation + ",警报等级：" + alarmConvertEntity.AlarmLevel + ",警报发生时间：" + alarmConvertEntity.AlarmTime + ",警报更新时间：" + alarmConvertEntity.AlarmTimestamp + "");
+
                 alarmConvertEntitydictionary.TryAdd(alarmConvertEntity.AlarmLocation + "_" + alarmConvertEntity.AlarmLevel, alarmConvertEntity);
                 await Task.Run(async () => await TaskProducer(alarmConvertEntity));
                 await Task.Delay(500);
                 AddAlarmConvertEntity(alarmConvertEntity);
+
             }
             //执行下载
 
@@ -681,10 +691,7 @@ namespace ATIAN.Middleware.NVR
             {
                 ExecuteDownload();
             }
-
             await Task.Run(async () => await ClearAlarmConvertEntitydictionaryAndCenterEntitiesList());
-
-
         }
 
         /// <summary>
@@ -920,6 +927,7 @@ namespace ATIAN.Middleware.NVR
                         Console.WriteLine();
                         Console.ForegroundColor = ConsoleColor.Green;
                         Console.WriteLine("队列数据已经下载完成！！");
+                        Log4NetHelper.WriteInfoLog("队列数据已经下载完成！！");
                         return;
                     }
                     while (IsDown)
@@ -928,9 +936,14 @@ namespace ATIAN.Middleware.NVR
                         Console.WriteLine();
                         Console.ForegroundColor = ConsoleColor.Green;
                         Console.WriteLine("开始下载录像总共" + AlarmConvertEntityListQueue.Count + "个录像需要下载");
+
+                        Log4NetHelper.WriteInfoLog("开始下载录像总共" + AlarmConvertEntityListQueue.Count + "个录像需要下载");
+                      
                         AlarmConvertEntity workItem;
                         if (AlarmConvertEntityListQueue.TryDequeue(out workItem))
                         {
+
+                            Log4NetHelper.WriteInfoLog("开始下载警报录像，警报信息说明：设备主键：" + workItem.DeviceID + " 警报中心位置：" + workItem.AlarmLocation + ",警报等级：" + workItem.AlarmLevel + ",警报发生时间：" + workItem.AlarmTime + ",警报更新时间：" + workItem.AlarmTimestamp + "");
                             ExistToDownload(workItem);
                         }
                         else
@@ -939,6 +952,7 @@ namespace ATIAN.Middleware.NVR
                             Console.WriteLine();
                             Console.ForegroundColor = ConsoleColor.Green;
                             Console.WriteLine("队列数据已经下载完成！！");
+                            Log4NetHelper.WriteInfoLog("队列数据已经下载完成！！");
                             break;
                         }
                     }
