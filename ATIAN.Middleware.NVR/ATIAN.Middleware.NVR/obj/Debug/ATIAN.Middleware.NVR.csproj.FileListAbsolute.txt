@@ -98,7 +98,6 @@ F:\Code\ATIAN-Project-DFVS-00001\NVR\ATIAN.Middleware.NVR\ATIAN.Middleware.NVR\b
 F:\Code\ATIAN-Project-DFVS-00001\NVR\ATIAN.Middleware.NVR\ATIAN.Middleware.NVR\bin\System.Memory.xml
 F:\Code\ATIAN-Project-DFVS-00001\NVR\ATIAN.Middleware.NVR\ATIAN.Middleware.NVR\bin\System.Numerics.Vectors.xml
 F:\Code\ATIAN-Project-DFVS-00001\NVR\ATIAN.Middleware.NVR\ATIAN.Middleware.NVR\bin\System.Runtime.CompilerServices.Unsafe.xml
-F:\Code\ATIAN-Project-DFVS-00001\NVR\ATIAN.Middleware.NVR\ATIAN.Middleware.NVR\obj\Debug\ATIAN.Middleware.NVR.csprojAssemblyReference.cache
 F:\Code\ATIAN-Project-DFVS-00001\NVR\ATIAN.Middleware.NVR\ATIAN.Middleware.NVR\obj\Debug\ATIAN.Middleware.NVR.csproj.CoreCompileInputs.cache
 F:\Code\ATIAN-Project-DFVS-00001\NVR\ATIAN.Middleware.NVR\ATIAN.Middleware.NVR\obj\Debug\ATIAN.Middleware.NVR.csproj.CopyComplete
 F:\Code\ATIAN-Project-DFVS-00001\NVR\ATIAN.Middleware.NVR\ATIAN.Middleware.NVR\obj\Debug\ATIAN.Middleware.NVR.exe
