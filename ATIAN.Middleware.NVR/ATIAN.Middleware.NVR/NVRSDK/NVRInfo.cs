@@ -49,12 +49,18 @@ namespace ATIAN.Middleware.NVR.NVRSDK
         /// <summary>
         /// 视频截取警报前时间
         /// </summary>
-        public int   AlarmTimeLeft { get; set; }
+        public int AlarmTimeLeft { get; set; }
 
         /// <summary>
         /// 视频截取警报后时间
         /// </summary>
-        public int    AlarmTimeRight { get; set; }
+        public int AlarmTimeRight { get; set; }
+
+        /// <summary>
+        /// 视频延时下载时间
+        /// </summary>
+
+        public int NVRDownloadDelay { get; set; }
 
     }
 }

@@ -824,7 +824,8 @@ namespace ATIAN.Middleware.NVR
                         DateTime dateTimeStart = AlarmTime.AddSeconds(config.DVRInfos.AlarmTimeLeft);
                         //录像结束时间
                         DateTime dateTimeEnd = AlarmTime.AddSeconds(config.DVRInfos.AlarmTimeRight);
-                        DateTime SetdateTimeEnd = dateTimeEnd.AddSeconds(90);
+                        //故意延时，确保从nvr中能拿到视频信息
+                        DateTime SetdateTimeEnd = dateTimeEnd.AddSeconds(config.DVRInfos.NVRDownloadDelay);
                         DateTime nowDateTime = DateTime.Now;
                         if (nowDateTime < SetdateTimeEnd)
                         {
