@@ -14,6 +14,8 @@ namespace ATIAN.Middleware.NVR.Http
 
         [JsonProperty("fileToUploadUri")]
         public fileToUploadSettings Uri { get; set; }
+
+        public string weixingmpUploadapiUri { get; set; }
     }
 
 

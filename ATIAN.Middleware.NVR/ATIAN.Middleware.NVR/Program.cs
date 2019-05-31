@@ -1,7 +1,7 @@
 ﻿using ATIAN.Middleware.NVR.Entity;
 using ATIAN.Middleware.NVR.Help;
 using ATIAN.Middleware.NVR.Http;
-using ATIAN.Middleware.NVR.MQTT;
+
 using ATIAN.Middleware.NVR.NVRSDK;
 
 using ATIAN.Middleware.NVR.ProgressBarSolution;
@@ -14,6 +14,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -118,7 +119,7 @@ namespace ATIAN.Middleware.NVR
         static void Main(string[] args)
         {
 
-            Log4NetHelper.InitLog4Net(Environment.CurrentDirectory+@"\log4net.config");
+            Log4NetHelper.InitLog4Net(Environment.CurrentDirectory + @"\log4net.config");
 
             Log4NetHelper.WriteInfoLog("系统启动");
 
@@ -136,7 +137,7 @@ namespace ATIAN.Middleware.NVR
             }
             catch (Exception ex)
             {
-                Log4NetHelper.WriteErrorLog("读取配置文件出错"+ex.ToString());
+                Log4NetHelper.WriteErrorLog("读取配置文件出错" + ex.ToString());
                 Console.WriteLine("读取配置文件出错，3秒后自动退出！");
                 Thread.Sleep(3000);
                 Environment.Exit(0);
@@ -165,6 +166,7 @@ namespace ATIAN.Middleware.NVR
             nvrChannleEntities = new List<NVRChannleEntity>();
             Log4NetHelper.WriteInfoLog("开始启动Mqtt服务");
             StartMqttService();
+         //   FileInvoke.Instance().PushWeiXin();
             Log4NetHelper.WriteInfoLog("NVR设备SDK初始化");
             InItNVR();
             Log4NetHelper.WriteInfoLog("NVR设备登录初始化");
@@ -219,10 +221,10 @@ namespace ATIAN.Middleware.NVR
             {
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine(e);
-                Log4NetHelper.WriteErrorLog("Mqtt服务启动失败："+e);
+                Log4NetHelper.WriteErrorLog("Mqtt服务启动失败：" + e);
                 throw;
             }
-           
+
         }
 
         /// <summary>
@@ -284,13 +286,13 @@ namespace ATIAN.Middleware.NVR
                     //警报点是否在开始和结束末端
                     if (model.AlarmLocation < config.AlarmSetings.Endlength && model.AlarmLocation > config.AlarmSetings.FrontLength)
                     {
-                        Log4NetHelper.WriteInfoLog("接收到警报消息，设备主键："+model.DeviceID+" 警报中心位置："+model.AlarmLocation+",警报等级："+model.AlarmLevel+",警报发生时间："+model.AlarmTime+",警报更新时间："+model.AlarmTimestamp+"");
+                        Log4NetHelper.WriteInfoLog("接收到警报消息，设备主键：" + model.DeviceID + " 警报中心位置：" + model.AlarmLocation + ",警报等级：" + model.AlarmLevel + ",警报发生时间：" + model.AlarmTime + ",警报更新时间：" + model.AlarmTimestamp + "");
                         InsertToNVRDownloadQueue(model);
                         //ExistToDownload(model);
                     }
                     else
                     {
-                           Log4NetHelper.WriteErrorLog("警报中心位置："+model.AlarmLocation+"超过起始忽略长度，予以过滤");
+                        Log4NetHelper.WriteErrorLog("警报中心位置：" + model.AlarmLocation + "超过起始忽略长度，予以过滤");
                     }
 
                 }
@@ -338,7 +340,7 @@ namespace ATIAN.Middleware.NVR
                     str1 = "NET_DVR_Login_V30 failed, error code= " + iLastErr; //登录失败，输出错误号
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine(DateTime.Now.ToString() + str1);
-                   
+
                     Console.ReadKey();
                     Log4NetHelper.WriteErrorLog("NVR设备登录失败");
                 }
@@ -496,7 +498,7 @@ namespace ATIAN.Middleware.NVR
         /// <param name="SensorID"></param>
         /// <param name="ChannelID"></param>
         /// <param name="filename"></param>
-        static void DownloadByTime(DateTime dateTimeStart, DateTime dateTimeEnd, string NVRSerialNo, int NVRChannelNo, string SensorID, DateTime filename)
+        static async Task DownloadByTimeAsync(DateTime dateTimeStart, DateTime dateTimeEnd, string NVRSerialNo, int NVRChannelNo, string SensorID, DateTime filename, AlarmConvertEntity alarmConvertEntity)
         {
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("-----------------------------------------------------------");
@@ -599,21 +601,49 @@ namespace ATIAN.Middleware.NVR
             Console.WriteLine(DateTime.Now.ToString() + ":下载完成！！");
             Console.WriteLine("-----------------------------------------------------------");
 
-            Log4NetHelper.WriteInfoLog("下载完成!当前文件存储在："+ fullpath);
+            Log4NetHelper.WriteInfoLog("下载完成!当前文件存储在：" + fullpath);
             string diskIndex = fullpath.Split(':')[0].TrimEnd();
             string[] arraypath = fullpath.Split('\\');
             string directoryBase = arraypath[3].TrimEnd() + "\\" + arraypath[4].TrimEnd() + "\\";
-            UploadFile(diskIndex, directoryBase, name.ToString());
+            string mp4Url = UploadFile(diskIndex, directoryBase, name.ToString());
+            AlarmAndVideoEntity alarmAndVideoEntity = new AlarmAndVideoEntity()
+            {
+                AlarmID = null,
+                DeviceID = alarmConvertEntity.DeviceID,
+                AlarmType = alarmConvertEntity.AlarmType,
+                AlarmTopic = alarmConvertEntity.AlarmTopic,
+                AlarmLocation = alarmConvertEntity.AlarmLocation,
+                AlarmLevel = alarmConvertEntity.AlarmLevel,
+                AlarmMaxIntensity = alarmConvertEntity.AlarmMaxIntensity,
+                AlarmPossibility = alarmConvertEntity.AlarmPossibility,
+                AlarmTime = alarmConvertEntity.AlarmTime,
+                AlarmTimestamp = alarmConvertEntity.AlarmTimestamp,
+                GroupID =
+                    alarmConvertEntity.GroupID,
+                SensorID = alarmConvertEntity.SensorID,
+                DeviceName = alarmConvertEntity.SensorName,
+                VideoUrl = mp4Url,
+            };
+            Console.WriteLine("向分组：" + alarmConvertEntity.GroupID + "推送微信消息");
+            await FileInvoke.Instance().PushWeiXin(alarmAndVideoEntity);
+
+
+            Console.WriteLine(DateTime.Now.ToString() + ":视频推送完成！！");
+            Log4NetHelper.WriteInfoLog("视频推送完成");
             IsDown = true;
 
         }
 
-        /// <summary>
-        /// 检查文件是否存在
-        /// </summary>
-        /// <param name="dateTime"></param>
-        /// <returns></returns>
-        static string ExistFolder(DateTime dateTime)
+
+
+
+
+/// <summary>
+/// 检查文件是否存在
+/// </summary>
+/// <param name="dateTime"></param>
+/// <returns></returns>
+static string ExistFolder(DateTime dateTime)
         {
             string fristPath = config.DVRInfos.DownloadPath;
 
@@ -801,8 +831,7 @@ namespace ATIAN.Middleware.NVR
                 IsDown = true;
                 return;
             }
-            DeviceInfoEntity deviceInfoEntity = APIInvoke.Instance().GetDeviceInfoEntiy(alarmConvertEntity.DeviceID);
-            if (deviceInfoEntity == null)
+            if (string.IsNullOrEmpty(alarmConvertEntity.SensorID))
             {
                 Console.WriteLine();
                 Console.ForegroundColor = ConsoleColor.Red;
@@ -810,6 +839,9 @@ namespace ATIAN.Middleware.NVR
                 Log4NetHelper.WriteErrorLog("未从API接口中获得相关设备的详细信息，请检查平台设备绑定信息");
                 return;
             }
+
+
+
             List<NVRChannelInfo> nvrChannelInfoList = GetNVRChannelInfo(alarmConvertEntity.DeviceID);
             if (nvrChannelInfoList != null && nvrChannelInfoList.Count > 0)
             {
@@ -857,7 +889,7 @@ namespace ATIAN.Middleware.NVR
                             Thread.Sleep(3000);
                         }
                         DateTime fileDateTimeName = DateTime.Now;
-                        DownloadByTime(dateTimeStart, dateTimeEnd, nvrChannelInfoList[j].NVRSerialNo, nvrChannelInfoList[j].NVRChannelNo, deviceInfoEntity.SensorID, fileDateTimeName);
+                        DownloadByTimeAsync(dateTimeStart, dateTimeEnd, nvrChannelInfoList[j].NVRSerialNo, nvrChannelInfoList[j].NVRChannelNo, alarmConvertEntity.SensorID, fileDateTimeName, alarmConvertEntity);
                         IsDown = true;
                     }
                     else
@@ -903,9 +935,9 @@ namespace ATIAN.Middleware.NVR
         /// <param name="diskIndex"></param>
         /// <param name="filepath"></param>
         /// <param name="filename"></param>
-        static void UploadFile(string diskIndex, string filepath, string filename)
+        static string UploadFile(string diskIndex, string filepath, string filename)
         {
-            FileInvoke.Instance().UploadFile(diskIndex, filepath, filename);
+            return FileInvoke.Instance().UploadFile(diskIndex, filepath, filename);
         }
 
         /// <summary>
@@ -939,7 +971,7 @@ namespace ATIAN.Middleware.NVR
                         Console.WriteLine("开始下载录像总共" + AlarmConvertEntityListQueue.Count + "个录像需要下载");
 
                         Log4NetHelper.WriteInfoLog("开始下载录像总共" + AlarmConvertEntityListQueue.Count + "个录像需要下载");
-                      
+
                         AlarmConvertEntity workItem;
                         if (AlarmConvertEntityListQueue.TryDequeue(out workItem))
                         {
