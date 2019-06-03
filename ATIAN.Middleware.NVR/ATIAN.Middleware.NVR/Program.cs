@@ -12,6 +12,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -19,12 +20,18 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Web.UI.WebControls;
 
 
 namespace ATIAN.Middleware.NVR
 {
     class Program
     {
+
+
+
+
+
         private static bool IsDown = true;
         /// <summary>
         /// 一级警报设置
@@ -166,7 +173,7 @@ namespace ATIAN.Middleware.NVR
             nvrChannleEntities = new List<NVRChannleEntity>();
             Log4NetHelper.WriteInfoLog("开始启动Mqtt服务");
             StartMqttService();
-         //   FileInvoke.Instance().PushWeiXin();
+            //   FileInvoke.Instance().PushWeiXin();
             Log4NetHelper.WriteInfoLog("NVR设备SDK初始化");
             InItNVR();
             Log4NetHelper.WriteInfoLog("NVR设备登录初始化");
@@ -602,9 +609,39 @@ namespace ATIAN.Middleware.NVR
             Console.WriteLine("-----------------------------------------------------------");
 
             Log4NetHelper.WriteInfoLog("下载完成!当前文件存储在：" + fullpath);
-            string diskIndex = fullpath.Split(':')[0].TrimEnd();
-            string[] arraypath = fullpath.Split('\\');
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine();
+            Console.WriteLine(DateTime.Now.ToString() + ":开始进行视频格式转换");
+            Console.WriteLine("-----------------------------------------------------------");
+            filename = DateTime.Now;
+            name.Clear();
+            name.Append(filename.ToString("yyyy-MM-dd HH:mm:ss:ff").Replace('-', ' ').Replace(':', ' ')
+                .Replace(@" ", ""));
+            name.Append("_");
+            name.Append(SensorID);
+            name.Append("_");
+            name.Append(NVRSerialNo);
+            name.Append("_");
+            name.Append(NVRChannelNo);
+
+
+            string newFileName = ExistFolder(filename) + "\\" + name.ToString() + ".mp4";
+            string resultFileName =  VideoConverter(fullpath, newFileName);
+          //  resultFileName = resultFileName.Replace('"', ' ').TrimEnd().TrimStart();
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine();
+            Console.WriteLine(DateTime.Now.ToString() + ":视频格式转换完成");
+            Console.WriteLine("-----------------------------------------------------------");
+
+
+
+            string diskIndex = resultFileName.Split(':')[0].TrimEnd();
+            string[] arraypath = resultFileName.Split('\\');
             string directoryBase = arraypath[3].TrimEnd() + "\\" + arraypath[4].TrimEnd() + "\\";
+
+
+
             string mp4Url = UploadFile(diskIndex, directoryBase, name.ToString());
             AlarmAndVideoEntity alarmAndVideoEntity = new AlarmAndVideoEntity()
             {
@@ -625,9 +662,7 @@ namespace ATIAN.Middleware.NVR
                 VideoUrl = mp4Url,
             };
             Console.WriteLine("向分组：" + alarmConvertEntity.GroupID + "推送微信消息");
-            await FileInvoke.Instance().PushWeiXin(alarmAndVideoEntity);
-
-
+           await FileInvoke.Instance().PushWeiXin(alarmAndVideoEntity);
             Console.WriteLine(DateTime.Now.ToString() + ":视频推送完成！！");
             Log4NetHelper.WriteInfoLog("视频推送完成");
             IsDown = true;
@@ -635,15 +670,91 @@ namespace ATIAN.Middleware.NVR
         }
 
 
+        /// <summary>
+        /// 视频装换方法
+        /// </summary>
+        /// <param name="srcFileName"></param>
+
+        static string  VideoConverter(string srcFileName, string newFileName)
+        {
+            string path = AppDomain.CurrentDomain.BaseDirectory; //获取程序路径
+            Process p = new Process();
+            p.StartInfo.FileName = path + "ffmpeg";
+
+            p.StartInfo.UseShellExecute = false;
+
+            string  cdm = $" -i \"{srcFileName}\" -y -vcodec h264 -threads {config.DVRInfos.CPUCores} -crf { config.DVRInfos.VideoQuality} \"{newFileName}\"";
+        //    srcFileName = $"{srcFileName}";//"" + srcFileName + "";
+        //    newFileName = $"{newFileName}"; //"" + newFileName + "\"";
+      
+
+
+            //  destFileName = "\"" + savepath + "\\" + newFileName + DateTime.Now.ToString("yyyyMMddhhmmss") + ".mp4";
+
+            //-preset：指定编码的配置。x264编码算法有很多可供配置的参数，
+            //不同的参数值会导致编码的速度大相径庭，甚至可能影响质量。
+            //为了免去用户了解算法，然后手工配置参数的麻烦。x264提供了一些预设值，
+            //而这些预设值可以通过preset指定。这些预设值有包括：
+            //ultrafast，superfast，veryfast，faster，fast，medium，slow，slower，veryslow和placebo。
+            //ultrafast编码速度最快，但压缩率低，生成的文件更大，placebo则正好相反。x264所取的默认值为medium。
+            //需要说明的是，preset主要是影响编码的速度，并不会很大的影响编码出来的结果的质量。
+            //-crf：这是最重要的一个选项，用于指定输出视频的质量，取值范围是0-51，默认值为23，数字越小输出视频的质量越高。
+            //这个选项会直接影响到输出视频的码率。一般来说，压制480p我会用20左右，压制720p我会用16-18，1080p我没尝试过。
+            //个人觉得，一般情况下没有必要低于16。最好的办法是大家可以多尝试几个值，每个都压几分钟，看看最后的输出质量和文件大小，自己再按需选择。
+            p.StartInfo.Arguments = cdm;//'// " -i " + srcFileName + " -y -vcodec h264 -threads " + config.DVRInfos.CPUCores + " -crf " + config.DVRInfos.VideoQuality +
+                                    //" " + newFileName + ""; //执行参数
+
+            p.StartInfo.UseShellExecute = false; ////不使用系统外壳程序启动进程
+            p.StartInfo.CreateNoWindow = false; //不显示dos程序窗口
+
+            p.StartInfo.RedirectStandardInput = true;
+
+            p.StartInfo.RedirectStandardOutput = true;
+
+            p.StartInfo.RedirectStandardError = true; //把外部程序错误输出写到StandardError流中
+
+            p.ErrorDataReceived += new DataReceivedEventHandler(p_ErrorDataReceived);
+
+            p.OutputDataReceived += new DataReceivedEventHandler(p_OutputDataReceived);
+
+            p.StartInfo.UseShellExecute = false;
+
+            p.Start();
+
+            p.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
+
+            p.BeginErrorReadLine(); //开始异步读取
+
+            p.WaitForExit(); //阻塞等待进程结束
+
+            p.Close(); //关闭进程
+
+
+            p.Dispose(); //释放资源
+            return newFileName;
+
+        }
+        private static void p_ErrorDataReceived(object sender, DataReceivedEventArgs e)
+        {
+            //WriteLog(e.Data);
+        }
+
+        private static void p_OutputDataReceived(object sender, DataReceivedEventArgs e)
+        {
+
+            //WriteLog(e.Data);
+
+        }
 
 
 
-/// <summary>
-/// 检查文件是否存在
-/// </summary>
-/// <param name="dateTime"></param>
-/// <returns></returns>
-static string ExistFolder(DateTime dateTime)
+
+        /// <summary>
+        /// 检查文件是否存在
+        /// </summary>
+        /// <param name="dateTime"></param>
+        /// <returns></returns>
+        static string ExistFolder(DateTime dateTime)
         {
             string fristPath = config.DVRInfos.DownloadPath;
 

@@ -37,7 +37,7 @@ namespace ATIAN.Middleware.NVR.NVRSDK
         ///// <summary>
         ///// 文件上传
         ///// </summary>
-        //public string UploadUrl { get; set; }
+       //public string UploadUrl { get; set; }
 
         ///// <summary>
         /////文件上传接口
@@ -61,6 +61,9 @@ namespace ATIAN.Middleware.NVR.NVRSDK
         /// </summary>
 
         public int NVRDownloadDelay { get; set; }
+        public int CPUCores { get; set; }
+
+        public int VideoQuality { get; set; }
 
     }
 }
