@@ -105,3 +105,4 @@ F:\Code\ATIAN-Project-DFVS-00001\NVR\ATIAN.Middleware.NVR\ATIAN.Middleware.NVR\o
 F:\Code\ATIAN-Project-DFVS-00001\NVR\ATIAN.Middleware.NVR\ATIAN.Middleware.NVR\obj\Debug\ATIAN.Middleware.NVR.csproj.CopyComplete
 F:\Code\ATIAN-Project-DFVS-00001\NVR\ATIAN.Middleware.NVR\ATIAN.Middleware.NVR\obj\Debug\ATIAN.Middleware.NVR.exe
 F:\Code\ATIAN-Project-DFVS-00001\NVR\ATIAN.Middleware.NVR\ATIAN.Middleware.NVR\obj\Debug\ATIAN.Middleware.NVR.pdb
+F:\Code\ATIAN-Project-DFVS-00001\NVR\ATIAN.Middleware.NVR\ATIAN.Middleware.NVR\obj\Debug\ATIAN.Middleware.NVR.csprojAssemblyReference.cache

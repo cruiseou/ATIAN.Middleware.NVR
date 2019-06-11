@@ -58,9 +58,14 @@ namespace ATIAN.Middleware.NVR
         /// 用来存放中心点的序列
         /// </summary>
         private static List<CenterEntity> centerEntitiesList;
+        delegate void IsConcurrentQueue();
 
+        private static event IsConcurrentQueue IsConcurrentQueueEvent;
         //static BlockingCollection<AlarmConvertEntity> AlarmConvertEntityListQueue;
-
+        /// <summary>
+        /// mqtt客户端
+        /// </summary>
+        static IManagedMqttClient mqttClient;
 
         /// <summary>
         /// NVR设备通道信息
@@ -127,9 +132,7 @@ namespace ATIAN.Middleware.NVR
         {
 
             Log4NetHelper.InitLog4Net(Environment.CurrentDirectory + @"\log4net.config");
-
             Log4NetHelper.WriteInfoLog("系统启动");
-
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("-----------------------------------------------------------");
             Console.WriteLine("-----------------------------------------------------------");
@@ -154,7 +157,6 @@ namespace ATIAN.Middleware.NVR
             APIInvoke.Instance().Init(config.ApiSettings);
             Log4NetHelper.WriteInfoLog("初始化文件上传平台接口");
             FileInvoke.Instance().Init(config.FileSeting);
-
             SetConsoleCtrlHandler(cancelHandler, true);
             Log4NetHelper.WriteInfoLog("初始化一级警报过滤规则");
             alarmSetingInfoLevelOneEntity = config.AlarmSetings.AlarmSetings.Where(o => o.Level == 1).SingleOrDefault();
@@ -178,13 +180,25 @@ namespace ATIAN.Middleware.NVR
             InItNVR();
             Log4NetHelper.WriteInfoLog("NVR设备登录初始化");
             ConnectNVR();
-
+            Log4NetHelper.WriteInfoLog("NVR视频下载初始化");
+          
             Console.ReadKey();
         }
+
         /// <summary>
-        /// mqtt客户端
+        /// 从警报队列进行数据下载
         /// </summary>
-        static IManagedMqttClient mqttClient;
+        static void ConcurrentQueueDownload()
+        {
+
+          
+            if (AlarmConvertEntityListQueue.Count > 0 && !AlarmConvertEntityListQueue.IsEmpty)
+            {
+                ExecuteDownload();
+            }
+        }
+
+
 
         /// <summary>
         ///启动mqtt
@@ -505,7 +519,7 @@ namespace ATIAN.Middleware.NVR
         /// <param name="SensorID"></param>
         /// <param name="ChannelID"></param>
         /// <param name="filename"></param>
-        static async Task DownloadByTimeAsync(DateTime dateTimeStart, DateTime dateTimeEnd, string NVRSerialNo, int NVRChannelNo, string SensorID, DateTime filename, AlarmConvertEntity alarmConvertEntity)
+        static void DownloadByTimeAsync(DateTime dateTimeStart, DateTime dateTimeEnd, string NVRSerialNo, int NVRChannelNo, string SensorID, DateTime filename, AlarmConvertEntity alarmConvertEntity)
         {
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("-----------------------------------------------------------");
@@ -627,8 +641,8 @@ namespace ATIAN.Middleware.NVR
 
 
             string newFileName = ExistFolder(filename) + "\\" + name.ToString() + ".mp4";
-            string resultFileName =  VideoConverter(fullpath, newFileName);
-          //  resultFileName = resultFileName.Replace('"', ' ').TrimEnd().TrimStart();
+            string resultFileName = VideoConverter(fullpath, newFileName);
+            //  resultFileName = resultFileName.Replace('"', ' ').TrimEnd().TrimStart();
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine();
             Console.WriteLine(DateTime.Now.ToString() + ":视频格式转换完成");
@@ -636,35 +650,35 @@ namespace ATIAN.Middleware.NVR
 
 
 
-            string diskIndex = resultFileName.Split(':')[0].TrimEnd();
-            string[] arraypath = resultFileName.Split('\\');
-            string directoryBase = arraypath[3].TrimEnd() + "\\" + arraypath[4].TrimEnd() + "\\";
+            //string diskIndex = resultFileName.Split(':')[0].TrimEnd();
+            //string[] arraypath = resultFileName.Split('\\');
+            //string directoryBase = arraypath[3].TrimEnd() + "\\" + arraypath[4].TrimEnd() + "\\";
 
 
 
-            string mp4Url = UploadFile(diskIndex, directoryBase, name.ToString());
-            AlarmAndVideoEntity alarmAndVideoEntity = new AlarmAndVideoEntity()
-            {
-                AlarmID = null,
-                DeviceID = alarmConvertEntity.DeviceID,
-                AlarmType = alarmConvertEntity.AlarmType,
-                AlarmTopic = alarmConvertEntity.AlarmTopic,
-                AlarmLocation = alarmConvertEntity.AlarmLocation,
-                AlarmLevel = alarmConvertEntity.AlarmLevel,
-                AlarmMaxIntensity = alarmConvertEntity.AlarmMaxIntensity,
-                AlarmPossibility = alarmConvertEntity.AlarmPossibility,
-                AlarmTime = alarmConvertEntity.AlarmTime,
-                AlarmTimestamp = alarmConvertEntity.AlarmTimestamp,
-                GroupID =
-                    alarmConvertEntity.GroupID,
-                SensorID = alarmConvertEntity.SensorID,
-                DeviceName = alarmConvertEntity.SensorName,
-                VideoUrl = mp4Url,
-            };
-            Console.WriteLine("向分组：" + alarmConvertEntity.GroupID + "推送微信消息");
-           await FileInvoke.Instance().PushWeiXin(alarmAndVideoEntity);
-            Console.WriteLine(DateTime.Now.ToString() + ":视频推送完成！！");
-            Log4NetHelper.WriteInfoLog("视频推送完成");
+            //string mp4Url = UploadFile(diskIndex, directoryBase, name.ToString());
+            //AlarmAndVideoEntity alarmAndVideoEntity = new AlarmAndVideoEntity()
+            //{
+            //    AlarmID = null,
+            //    DeviceID = alarmConvertEntity.DeviceID,
+            //    AlarmType = alarmConvertEntity.AlarmType,
+            //    AlarmTopic = alarmConvertEntity.AlarmTopic,
+            //    AlarmLocation = alarmConvertEntity.AlarmLocation,
+            //    AlarmLevel = alarmConvertEntity.AlarmLevel,
+            //    AlarmMaxIntensity = alarmConvertEntity.AlarmMaxIntensity,
+            //    AlarmPossibility = alarmConvertEntity.AlarmPossibility,
+            //    AlarmTime = alarmConvertEntity.AlarmTime,
+            //    AlarmTimestamp = alarmConvertEntity.AlarmTimestamp,
+            //    GroupID =
+            //        alarmConvertEntity.GroupID,
+            //    SensorID = alarmConvertEntity.SensorID,
+            //    DeviceName = alarmConvertEntity.SensorName,
+            //    VideoUrl = mp4Url,
+            //};
+            //Console.WriteLine("向分组：" + alarmConvertEntity.GroupID + "推送微信消息");
+            //FileInvoke.Instance().PushWeiXin(alarmAndVideoEntity);
+            //Console.WriteLine(DateTime.Now.ToString() + ":视频推送完成！！");
+            //Log4NetHelper.WriteInfoLog("视频推送完成");
             IsDown = true;
 
         }
@@ -675,7 +689,7 @@ namespace ATIAN.Middleware.NVR
         /// </summary>
         /// <param name="srcFileName"></param>
 
-        static string  VideoConverter(string srcFileName, string newFileName)
+        static string VideoConverter(string srcFileName, string newFileName)
         {
             string path = AppDomain.CurrentDomain.BaseDirectory; //获取程序路径
             Process p = new Process();
@@ -683,10 +697,10 @@ namespace ATIAN.Middleware.NVR
 
             p.StartInfo.UseShellExecute = false;
 
-            string  cdm = $" -i \"{srcFileName}\" -y -vcodec h264 -threads {config.DVRInfos.CPUCores} -crf { config.DVRInfos.VideoQuality} \"{newFileName}\"";
-        //    srcFileName = $"{srcFileName}";//"" + srcFileName + "";
-        //    newFileName = $"{newFileName}"; //"" + newFileName + "\"";
-      
+            string cdm = $" -i \"{srcFileName}\" -y -vcodec h264 -threads {config.DVRInfos.CPUCores} -crf { config.DVRInfos.VideoQuality} \"{newFileName}\"";
+            //    srcFileName = $"{srcFileName}";//"" + srcFileName + "";
+            //    newFileName = $"{newFileName}"; //"" + newFileName + "\"";
+
 
 
             //  destFileName = "\"" + savepath + "\\" + newFileName + DateTime.Now.ToString("yyyyMMddhhmmss") + ".mp4";
@@ -702,7 +716,7 @@ namespace ATIAN.Middleware.NVR
             //这个选项会直接影响到输出视频的码率。一般来说，压制480p我会用20左右，压制720p我会用16-18，1080p我没尝试过。
             //个人觉得，一般情况下没有必要低于16。最好的办法是大家可以多尝试几个值，每个都压几分钟，看看最后的输出质量和文件大小，自己再按需选择。
             p.StartInfo.Arguments = cdm;//'// " -i " + srcFileName + " -y -vcodec h264 -threads " + config.DVRInfos.CPUCores + " -crf " + config.DVRInfos.VideoQuality +
-                                    //" " + newFileName + ""; //执行参数
+                                        //" " + newFileName + ""; //执行参数
 
             p.StartInfo.UseShellExecute = false; ////不使用系统外壳程序启动进程
             p.StartInfo.CreateNoWindow = false; //不显示dos程序窗口
@@ -746,9 +760,6 @@ namespace ATIAN.Middleware.NVR
 
         }
 
-
-
-
         /// <summary>
         /// 检查文件是否存在
         /// </summary>
@@ -757,18 +768,13 @@ namespace ATIAN.Middleware.NVR
         static string ExistFolder(DateTime dateTime)
         {
             string fristPath = config.DVRInfos.DownloadPath;
-
             string secondPath = dateTime.ToShortDateString().Replace(@"/", "");
-
             string fullPath = fristPath + @"\" + secondPath;
             if (!Directory.Exists(fullPath))//如果不存
-
             {
                 Directory.CreateDirectory(fullPath);
             }
-
             return fullPath;
-
         }
 
 
@@ -802,6 +808,7 @@ namespace ATIAN.Middleware.NVR
                             //下载队列新增
                             await Task.Run(async () => await TaskProducer(alarmConvertEntity));
                             await Task.Delay(500);
+                          
                         }
                     }
                 }
@@ -811,6 +818,7 @@ namespace ATIAN.Middleware.NVR
                     alarmConvertEntitydictionary.TryAdd(alarmConvertEntity.AlarmLocation + "_" + alarmConvertEntity.AlarmLevel, alarmConvertEntity);
                     await Task.Run(async () => await TaskProducer(alarmConvertEntity));
                     await Task.Delay(500);
+                  
                     AddAlarmConvertEntity(alarmConvertEntity);
                 }
             }
@@ -823,17 +831,20 @@ namespace ATIAN.Middleware.NVR
                 alarmConvertEntitydictionary.TryAdd(alarmConvertEntity.AlarmLocation + "_" + alarmConvertEntity.AlarmLevel, alarmConvertEntity);
                 await Task.Run(async () => await TaskProducer(alarmConvertEntity));
                 await Task.Delay(500);
+             
                 AddAlarmConvertEntity(alarmConvertEntity);
 
             }
+            Task ConcurrentQueueDownloadTask = Task.Factory.StartNew(delegate { ConcurrentQueueDownload(); });
             //执行下载
 
-            if (AlarmConvertEntityListQueue.Count > 0)
-            {
-                ExecuteDownload();
-            }
+            //if (AlarmConvertEntityListQueue.Count > 0)
+            //{
+            //    ExecuteDownload();
+            //}
             await Task.Run(async () => await ClearAlarmConvertEntitydictionaryAndCenterEntitiesList());
         }
+
 
         /// <summary>
         /// 向中心点列表中加入数据
@@ -1089,6 +1100,7 @@ namespace ATIAN.Middleware.NVR
 
                             Log4NetHelper.WriteInfoLog("开始下载警报录像，警报信息说明：设备主键：" + workItem.DeviceID + " 警报中心位置：" + workItem.AlarmLocation + ",警报等级：" + workItem.AlarmLevel + ",警报发生时间：" + workItem.AlarmTime + ",警报更新时间：" + workItem.AlarmTimestamp + "");
                             ExistToDownload(workItem);
+
                         }
                         else
                         {
