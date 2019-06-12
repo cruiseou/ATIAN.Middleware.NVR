@@ -74,25 +74,31 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="ATIAN.Common.ManagedInvoke">
-      <HintPath>..\..\ATIAN-product-DTS-00002\src\ATIAN.Common.ManagedInvoke\obj\Debug\netstandard2.0\ATIAN.Common.ManagedInvoke.dll</HintPath>
+      <HintPath>..\..\_3dll\ATIAN.Common.ManagedInvoke.dll</HintPath>
     </Reference>
     <Reference Include="ATIAN.Common.MQTTLib">
-      <HintPath>..\..\ATIAN-product-DTS-00002\src\ATIAN.Common.MQTTLib\obj\Debug\netstandard2.0\ATIAN.Common.MQTTLib.dll</HintPath>
+      <HintPath>..\..\_3dll\ATIAN.Common.MQTTLib.dll</HintPath>
     </Reference>
     <Reference Include="ATIAN.Common.MQTTLib.Protocol">
-      <HintPath>..\..\ATIAN-product-DTS-00002\src\ATIAN.Common.MQTTLib.Model\obj\Debug\netstandard2.0\ATIAN.Common.MQTTLib.Protocol.dll</HintPath>
+      <HintPath>..\..\_3dll\ATIAN.Common.MQTTLib.Protocol.dll</HintPath>
     </Reference>
     <Reference Include="ATIAN.Common.MQTTLib.Protocol.DFTS">
-      <HintPath>..\..\ATIAN-product-DTS-00002\src\ATIAN.Common.MQTTLib.Protocol.DTS\bin\Debug\netstandard2.0\ATIAN.Common.MQTTLib.Protocol.DFTS.dll</HintPath>
+      <HintPath>..\..\_3dll\ATIAN.Common.MQTTLib.Protocol.DFTS.dll</HintPath>
     </Reference>
     <Reference Include="ATIAN.Common.MQTTLib.Protocol.DFVS">
-      <HintPath>..\..\ATIAN-product-DTS-00002\src\ATIAN.Common.MQTTLib.Protocol.DFVS\bin\Debug\netstandard2.0\ATIAN.Common.MQTTLib.Protocol.DFVS.dll</HintPath>
+      <HintPath>..\..\_3dll\ATIAN.Common.MQTTLib.Protocol.DFVS.dll</HintPath>
     </Reference>
-    <Reference Include="ATIAN.Middleware.DFSensor">
-      <HintPath>..\..\ATIAN-product-DTS-00002\src\ATIAN.Middleware.DFSensor\bin\Debug\netstandard2.0\ATIAN.Middleware.DFSensor.dll</HintPath>
+    <Reference Include="ATIAN.Middleware.DFTSensor">
+      <HintPath>..\..\_3dll\ATIAN.Middleware.DFTSensor.dll</HintPath>
     </Reference>
     <Reference Include="ATIAN.Middleware.DFVSensor">
-      <HintPath>..\..\ATIAN-product-DTS-00002\src\ATIAN.Middleware.DFVSSensor\obj\Debug\netstandard2.0\ATIAN.Middleware.DFVSensor.dll</HintPath>
+      <HintPath>..\..\_3dll\ATIAN.Middleware.DFVSensor.dll</HintPath>
+    </Reference>
+    <Reference Include="ATIAN.Middleware.SmokeSensor">
+      <HintPath>..\..\_3dll\ATIAN.Middleware.SmokeSensor.dll</HintPath>
+    </Reference>
+    <Reference Include="ATIAN.Middleware.ys7">
+      <HintPath>..\..\_3dll\ATIAN.Middleware.ys7.dll</HintPath>
     </Reference>
     <Reference Include="ICSharpCode.SharpZipLib, Version=1.1.0.145, Culture=neutral, PublicKeyToken=1b03e6acf1164f73, processorArchitecture=MSIL">
       <HintPath>..\packages\SharpZipLib.1.1.0\lib\net45\ICSharpCode.SharpZipLib.dll</HintPath>
