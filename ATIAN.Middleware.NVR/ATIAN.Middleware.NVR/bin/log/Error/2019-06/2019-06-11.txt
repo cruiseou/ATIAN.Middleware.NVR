@@ -1,0 +1,55 @@
+
+＝＝＝＝＝＝＝＝＝＝                                   
+【日志级别】ERROR                                   
+【记录时间】2019-06-11 08:37:32,207                                   
+【线程编号】[27]                                   
+【执行时间】[429597]毫秒                                   
+【出错文件】F:\Code\ATIAN-Project-DFVS-00001\NVR\ATIAN.Middleware.NVR\ATIAN.Middleware.NVR\Help\Log4NetHelper.cs                                   
+【出错行号】43                                   
+【出错的类】error_logo 属性[(null)]                                   
+【错误描述】通道：1不在线，无法连接设备，下载失败,请检查NVR与摄像头连接                                   
+【错误详情】
+
+＝＝＝＝＝＝＝＝＝＝                                   
+【日志级别】ERROR                                   
+【记录时间】2019-06-11 08:37:32,283                                   
+【线程编号】[27]                                   
+【执行时间】[429674]毫秒                                   
+【出错文件】F:\Code\ATIAN-Project-DFVS-00001\NVR\ATIAN.Middleware.NVR\ATIAN.Middleware.NVR\Help\Log4NetHelper.cs                                   
+【出错行号】43                                   
+【出错的类】error_logo 属性[(null)]                                   
+【错误描述】通道：1不在线，无法连接设备，下载失败,请检查NVR与摄像头连接                                   
+【错误详情】
+
+＝＝＝＝＝＝＝＝＝＝                                   
+【日志级别】ERROR                                   
+【记录时间】2019-06-11 08:37:32,288                                   
+【线程编号】[27]                                   
+【执行时间】[429679]毫秒                                   
+【出错文件】F:\Code\ATIAN-Project-DFVS-00001\NVR\ATIAN.Middleware.NVR\ATIAN.Middleware.NVR\Help\Log4NetHelper.cs                                   
+【出错行号】43                                   
+【出错的类】error_logo 属性[(null)]                                   
+【错误描述】通道：1不在线，无法连接设备，下载失败,请检查NVR与摄像头连接                                   
+【错误详情】
+
+＝＝＝＝＝＝＝＝＝＝                                   
+【日志级别】ERROR                                   
+【记录时间】2019-06-11 08:37:32,293                                   
+【线程编号】[27]                                   
+【执行时间】[429684]毫秒                                   
+【出错文件】F:\Code\ATIAN-Project-DFVS-00001\NVR\ATIAN.Middleware.NVR\ATIAN.Middleware.NVR\Help\Log4NetHelper.cs                                   
+【出错行号】43                                   
+【出错的类】error_logo 属性[(null)]                                   
+【错误描述】通道：1不在线，无法连接设备，下载失败,请检查NVR与摄像头连接                                   
+【错误详情】
+
+＝＝＝＝＝＝＝＝＝＝                                   
+【日志级别】ERROR                                   
+【记录时间】2019-06-11 08:37:32,299                                   
+【线程编号】[27]                                   
+【执行时间】[429690]毫秒                                   
+【出错文件】F:\Code\ATIAN-Project-DFVS-00001\NVR\ATIAN.Middleware.NVR\ATIAN.Middleware.NVR\Help\Log4NetHelper.cs                                   
+【出错行号】43                                   
+【出错的类】error_logo 属性[(null)]                                   
+【错误描述】通道：1不在线，无法连接设备，下载失败,请检查NVR与摄像头连接                                   
+【错误详情】
