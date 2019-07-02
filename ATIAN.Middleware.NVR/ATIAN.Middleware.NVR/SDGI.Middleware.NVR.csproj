@@ -7,7 +7,7 @@
     <ProjectGuid>{299F3121-89CC-4ED3-B3C9-FE9CCC7FDA00}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <RootNamespace>ATIAN.Middleware.NVR</RootNamespace>
-    <AssemblyName>ATIAN.Middleware.NVR</AssemblyName>
+    <AssemblyName>SDGI.Middleware.NVR</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
@@ -46,7 +46,7 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
+    <OutputPath>..\SDGI.Moddleware.NVR\bin\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>

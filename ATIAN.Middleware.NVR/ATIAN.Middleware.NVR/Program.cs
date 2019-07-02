@@ -650,35 +650,35 @@ namespace ATIAN.Middleware.NVR
 
 
 
-            //string diskIndex = resultFileName.Split(':')[0].TrimEnd();
-            //string[] arraypath = resultFileName.Split('\\');
-            //string directoryBase = arraypath[3].TrimEnd() + "\\" + arraypath[4].TrimEnd() + "\\";
+            string diskIndex = resultFileName.Split(':')[0].TrimEnd();
+            string[] arraypath = resultFileName.Split('\\');
+            string directoryBase = arraypath[3].TrimEnd() + "\\" + arraypath[4].TrimEnd() + "\\";
 
 
 
-            //string mp4Url = UploadFile(diskIndex, directoryBase, name.ToString());
-            //AlarmAndVideoEntity alarmAndVideoEntity = new AlarmAndVideoEntity()
-            //{
-            //    AlarmID = null,
-            //    DeviceID = alarmConvertEntity.DeviceID,
-            //    AlarmType = alarmConvertEntity.AlarmType,
-            //    AlarmTopic = alarmConvertEntity.AlarmTopic,
-            //    AlarmLocation = alarmConvertEntity.AlarmLocation,
-            //    AlarmLevel = alarmConvertEntity.AlarmLevel,
-            //    AlarmMaxIntensity = alarmConvertEntity.AlarmMaxIntensity,
-            //    AlarmPossibility = alarmConvertEntity.AlarmPossibility,
-            //    AlarmTime = alarmConvertEntity.AlarmTime,
-            //    AlarmTimestamp = alarmConvertEntity.AlarmTimestamp,
-            //    GroupID =
-            //        alarmConvertEntity.GroupID,
-            //    SensorID = alarmConvertEntity.SensorID,
-            //    DeviceName = alarmConvertEntity.SensorName,
-            //    VideoUrl = mp4Url,
-            //};
-            //Console.WriteLine("向分组：" + alarmConvertEntity.GroupID + "推送微信消息");
-            //FileInvoke.Instance().PushWeiXin(alarmAndVideoEntity);
-            //Console.WriteLine(DateTime.Now.ToString() + ":视频推送完成！！");
-            //Log4NetHelper.WriteInfoLog("视频推送完成");
+            string mp4Url = UploadFile(diskIndex, directoryBase, name.ToString());
+            AlarmAndVideoEntity alarmAndVideoEntity = new AlarmAndVideoEntity()
+            {
+                AlarmID = null,
+                DeviceID = alarmConvertEntity.DeviceID,
+                AlarmType = alarmConvertEntity.AlarmType,
+                AlarmTopic = alarmConvertEntity.AlarmTopic,
+                AlarmLocation = alarmConvertEntity.AlarmLocation,
+                AlarmLevel = alarmConvertEntity.AlarmLevel,
+                AlarmMaxIntensity = alarmConvertEntity.AlarmMaxIntensity,
+                AlarmPossibility = alarmConvertEntity.AlarmPossibility,
+                AlarmTime = alarmConvertEntity.AlarmTime,
+                AlarmTimestamp = alarmConvertEntity.AlarmTimestamp,
+                GroupID =
+                    alarmConvertEntity.GroupID,
+                SensorID = alarmConvertEntity.SensorID,
+                DeviceName = alarmConvertEntity.SensorName,
+                VideoUrl = mp4Url,
+            };
+            Console.WriteLine("向分组：" + alarmConvertEntity.GroupID + "推送微信消息");
+            FileInvoke.Instance().PushWeiXin(alarmAndVideoEntity);
+            Console.WriteLine(DateTime.Now.ToString() + ":视频推送完成！！");
+            Log4NetHelper.WriteInfoLog("视频推送完成");
             IsDown = true;
 
         }
