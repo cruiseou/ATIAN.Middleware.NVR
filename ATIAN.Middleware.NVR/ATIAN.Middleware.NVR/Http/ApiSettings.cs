@@ -26,5 +26,16 @@ namespace ATIAN.Middleware.NVR.Http
         public string NVRIPCInfo  { get; set; }
 
         public string Device { get; set; }
+
+        /// <summary>
+        /// 获取未处理的普通警报信息
+        /// </summary>
+        public string GetNotRepairAlarmList { get; set; }
+
+
+        /// <summary>
+        /// 获取未处理的断纤警报信息
+        /// </summary>
+        public string GetBreakNotRepairAlarmList { get; set; }
     }
 }

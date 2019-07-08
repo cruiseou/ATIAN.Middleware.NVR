@@ -73,6 +73,11 @@ namespace ATIAN.Middleware.NVR.Http
                 var result = resClient.GetAsync(fileurl);
 
                 Console.WriteLine(result.Result.Content.ReadAsStringAsync().Result);
+                if ((int)result.Result.StatusCode== 404)
+                {
+                    return null;
+                }
+
                 return result.Result.Content.ReadAsStringAsync().Result;
             }
             catch (Exception e)

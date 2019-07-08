@@ -58,6 +58,21 @@ namespace ATIAN.Middleware.NVR
         /// 用来存放中心点的序列
         /// </summary>
         private static List<CenterEntity> centerEntitiesList;
+
+        /// <summary>
+        /// 断纤警报中心点位置
+        /// </summary>
+        private static List<FiberBreakAlarmCenterPayload> FiberBreakcenterEntitiesList;
+        /// <summary>
+        /// 断纤警报字典
+        /// </summary>
+        static ConcurrentDictionary<string, FiberBreakAlarmConvertEntity> FiberalarmConvertEntitydictionary;
+
+        /// <summary>
+        /// 断纤警报过滤设置
+        /// </summary>
+        static FiberBreakSeting fiberBreakSeting;
+
         delegate void IsConcurrentQueue();
 
         private static event IsConcurrentQueue IsConcurrentQueueEvent;
@@ -164,6 +179,8 @@ namespace ATIAN.Middleware.NVR
             alarmSetingInfoLevelTowEntity = config.AlarmSetings.AlarmSetings.Where(o => o.Level == 2).SingleOrDefault();
             Log4NetHelper.WriteInfoLog("初始化三级警报过滤规则");
             alarmSetingInfoLevelThreeEntity = config.AlarmSetings.AlarmSetings.Where(o => o.Level == 3).SingleOrDefault();
+
+            fiberBreakSeting = config.FiberBreakSeting;
             //初始化队列
             Log4NetHelper.WriteInfoLog("初始化视频下载警报队列");
             AlarmConvertEntityListQueue = new ConcurrentQueue<AlarmConvertEntity>();
@@ -171,6 +188,9 @@ namespace ATIAN.Middleware.NVR
             alarmConvertEntitydictionary = new ConcurrentDictionary<string, AlarmConvertEntity>();
             Log4NetHelper.WriteInfoLog("初始化警报中心点列表");
             centerEntitiesList = new List<CenterEntity>();
+            FiberBreakcenterEntitiesList = new List<FiberBreakAlarmCenterPayload>();
+
+            FiberalarmConvertEntitydictionary = new ConcurrentDictionary<string, FiberBreakAlarmConvertEntity>();
             Log4NetHelper.WriteInfoLog("初始化设备关联摄像头列表");
             nvrChannleEntities = new List<NVRChannleEntity>();
             Log4NetHelper.WriteInfoLog("开始启动Mqtt服务");
@@ -181,7 +201,11 @@ namespace ATIAN.Middleware.NVR
             Log4NetHelper.WriteInfoLog("NVR设备登录初始化");
             ConnectNVR();
             Log4NetHelper.WriteInfoLog("NVR视频下载初始化");
-          
+            Console.WriteLine("-----------------------------------------------------------");
+            Console.WriteLine("初始化未处理警报记录...");
+            InitAlarm();
+            Console.WriteLine("始化未处理警报记录完成！");
+            Console.WriteLine("-----------------------------------------------------------");
             Console.ReadKey();
         }
 
@@ -190,8 +214,6 @@ namespace ATIAN.Middleware.NVR
         /// </summary>
         static void ConcurrentQueueDownload()
         {
-
-          
             if (AlarmConvertEntityListQueue.Count > 0 && !AlarmConvertEntityListQueue.IsEmpty)
             {
                 ExecuteDownload();
@@ -233,6 +255,8 @@ namespace ATIAN.Middleware.NVR
                         .Build())
                     .Build());
                 mqttClient.SubscribeAsync("DFVS/Alarms/Converted");
+                mqttClient.SubscribeAsync("DFVS/Fiber/Converted");
+                mqttClient.SubscribeAsync("Remote/#");
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine(DateTime.Now.ToString() + ":Mqtt服务启动成功");
                 Console.WriteLine("-----------------------------------------------------------");
@@ -308,7 +332,10 @@ namespace ATIAN.Middleware.NVR
                     if (model.AlarmLocation < config.AlarmSetings.Endlength && model.AlarmLocation > config.AlarmSetings.FrontLength)
                     {
                         Log4NetHelper.WriteInfoLog("接收到警报消息，设备主键：" + model.DeviceID + " 警报中心位置：" + model.AlarmLocation + ",警报等级：" + model.AlarmLevel + ",警报发生时间：" + model.AlarmTime + ",警报更新时间：" + model.AlarmTimestamp + "");
-                        InsertToNVRDownloadQueue(model);
+
+                        Task.Run(() => FilterChannelAlarmResult(model));
+
+                        // InsertToNVRDownloadQueue(model);
                         //ExistToDownload(model);
                     }
                     else
@@ -318,6 +345,20 @@ namespace ATIAN.Middleware.NVR
 
                 }
             }
+            //断纤警报
+            if (e.ApplicationMessage.Topic.Equals("DFVS/Fiber/Converted"))
+            {
+                var model = JsonConvert.DeserializeObject<FiberBreakAlarmConvertEntity>(payloadString);
+                model.ChannelID = 1;
+                Task.Run(() => FilterChannelFiberResult(model));
+            }
+            //清理警报
+            if (e.ApplicationMessage.Topic.Split('/')[0] == "Remote" && e.ApplicationMessage.Topic.Split('/')[2] == "AlarmClear")
+            {
+
+                Task.Run(() => ClearAlarmConvertEntitydictionaryAndCenterEntitiesList(e.ApplicationMessage.Topic.Split('/')[1]));
+            }
+
 
         }
 
@@ -657,6 +698,18 @@ namespace ATIAN.Middleware.NVR
 
 
             string mp4Url = UploadFile(diskIndex, directoryBase, name.ToString());
+
+            if (string.IsNullOrEmpty(mp4Url))
+            {
+                Console.WriteLine("-----------------------------------------------------------");
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine(DateTime.Now.ToString() + "未找到视频源文件。停止向微信端和Line推送");
+                Log4NetHelper.WriteInfoLog("未找到视频源文件。停止向微信端和Line推送");
+                Console.WriteLine("-----------------------------------------------------------");
+                IsDown = true;
+                return;
+            }
+
             AlarmAndVideoEntity alarmAndVideoEntity = new AlarmAndVideoEntity()
             {
                 AlarmID = null,
@@ -751,6 +804,7 @@ namespace ATIAN.Middleware.NVR
         private static void p_ErrorDataReceived(object sender, DataReceivedEventArgs e)
         {
             //WriteLog(e.Data);
+            Console.WriteLine(DateTime.Now.ToString() + ":" + e.Data);
         }
 
         private static void p_OutputDataReceived(object sender, DataReceivedEventArgs e)
@@ -789,61 +843,118 @@ namespace ATIAN.Middleware.NVR
         /// 1.2 不在长度区间范围内
         ///     1.2.1 数组中新增一条，向队列中插入一条
         /// </summary>
-        static async Task InsertToNVRDownloadQueue(AlarmConvertEntity alarmConvertEntity)
+        //static async Task InsertToNVRDownloadQueue(AlarmConvertEntity alarmConvertEntity)
+        //{
+        //    if (alarmConvertEntitydictionary.Count > 0)
+        //    {   //判断是否在中心点
+        //        CenterEntity centerEntity = IsInCenter(alarmConvertEntity);
+        //        string alarmConvertEntitydictionarykey = centerEntity.AlarmLocation + "_" + centerEntity.AlarmLevel;
+        //        if (alarmConvertEntitydictionary.ContainsKey(alarmConvertEntitydictionarykey))
+        //        {
+        //            AlarmConvertEntity entity = alarmConvertEntitydictionary[alarmConvertEntitydictionarykey];
+
+        //            //判断是否在时间范围内
+        //            if (IsInTime(alarmConvertEntity, entity))
+        //            {
+        //                //更新
+        //                if (alarmConvertEntitydictionary.TryUpdate(alarmConvertEntitydictionarykey, alarmConvertEntity, entity))
+        //                {
+        //                    //下载队列新增
+        //                    await Task.Run(() => TaskProducer(alarmConvertEntity));
+        //                    await Task.Delay(500);
+
+        //                }
+        //            }
+        //        }
+        //        else
+        //        {//不在中心点范围内则添加
+
+        //            alarmConvertEntitydictionary.TryAdd(alarmConvertEntity.AlarmLocation + "_" + alarmConvertEntity.AlarmLevel, alarmConvertEntity);
+        //            await Task.Run(() => TaskProducer(alarmConvertEntity));
+        //            await Task.Delay(500);
+
+        //            AddAlarmConvertEntity(alarmConvertEntity);
+        //        }
+        //    }
+        //    else
+        //    {
+
+
+        //        Log4NetHelper.WriteInfoLog("向警报字典，警报中心点列表，NVR视频截取队列中加入数据，设备主键：" + alarmConvertEntity.DeviceID + " 警报中心位置：" + alarmConvertEntity.AlarmLocation + ",警报等级：" + alarmConvertEntity.AlarmLevel + ",警报发生时间：" + alarmConvertEntity.AlarmTime + ",警报更新时间：" + alarmConvertEntity.AlarmTimestamp + "");
+
+        //        alarmConvertEntitydictionary.TryAdd(alarmConvertEntity.AlarmLocation + "_" + alarmConvertEntity.AlarmLevel, alarmConvertEntity);
+        //        await Task.Run(() => TaskProducer(alarmConvertEntity));
+        //        await Task.Delay(500);
+
+        //        AddAlarmConvertEntity(alarmConvertEntity);
+
+        //    }
+        //    Task ConcurrentQueueDownloadTask = Task.Factory.StartNew(delegate { ConcurrentQueueDownload(); });
+        //    //执行下载
+
+        //    //if (AlarmConvertEntityListQueue.Count > 0)
+        //    //{
+        //    //    ExecuteDownload();
+        //    //}
+        //    //await Task.Run(async () => await ClearAlarmConvertEntitydictionaryAndCenterEntitiesList());
+        //}
+
+
+
+        /// <summary>
+        ///判断光纤警报
+        /// </summary>
+        /// <param name="model"></param>
+
+        static void FilterChannelAlarmResult(AlarmConvertEntity model)
         {
+            string alarmConvertEntitydictionarykey = model.SensorID + "_1_" + model.AlarmLocation + "_" + model.AlarmLevel;
             if (alarmConvertEntitydictionary.Count > 0)
             {   //判断是否在中心点
-                CenterEntity centerEntity = IsInCenter(alarmConvertEntity);
-                string alarmConvertEntitydictionarykey = centerEntity.AlarmLocation + "_" + centerEntity.AlarmLevel;
-                if (alarmConvertEntitydictionary.ContainsKey(alarmConvertEntitydictionarykey))
-                {
-                    AlarmConvertEntity entity = alarmConvertEntitydictionary[alarmConvertEntitydictionarykey];
+                CenterEntity centerEntity = IsInCenter(model);
 
-                    //判断是否在时间范围内
-                    if (IsInTime(alarmConvertEntity, entity))
-                    {
-                        //更新
-                        if (alarmConvertEntitydictionary.TryUpdate(alarmConvertEntitydictionarykey, alarmConvertEntity, entity))
-                        {
-                            //下载队列新增
-                            await Task.Run(async () => await TaskProducer(alarmConvertEntity));
-                            await Task.Delay(500);
-                          
-                        }
-                    }
+                if (centerEntity != null && centerEntity.AlarmLocation != 0)
+                {
+                    alarmConvertEntitydictionarykey = model.SensorID + "_1_" + centerEntity.AlarmLocation + "_" + centerEntity.AlarmLevel;
+                }
+                //判断是否为之前的警报 在持续上传
+                if (!alarmConvertEntitydictionary.ContainsKey(alarmConvertEntitydictionarykey))
+                {
+                    alarmConvertEntitydictionary.TryAdd(alarmConvertEntitydictionarykey, model);
+                    AddAlarmConvertEntity(model);
+                    Task.Run(() => TaskProducer(model));
+
                 }
                 else
-                {//不在中心点范围内则添加
+                {
+                    if (alarmConvertEntitydictionary[alarmConvertEntitydictionarykey] == null)
+                    {
+                        alarmConvertEntitydictionary.TryUpdate(alarmConvertEntitydictionarykey, model, null);
+                    }
 
-                    alarmConvertEntitydictionary.TryAdd(alarmConvertEntity.AlarmLocation + "_" + alarmConvertEntity.AlarmLevel, alarmConvertEntity);
-                    await Task.Run(async () => await TaskProducer(alarmConvertEntity));
-                    await Task.Delay(500);
-                  
-                    AddAlarmConvertEntity(alarmConvertEntity);
+                    Console.WriteLine("-----------------------------------------------------------");
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine(DateTime.Now.ToString() + "震动警报持续上传，未处理状态，不予向微信端和Line推送");
+                    Log4NetHelper.WriteInfoLog("震动警报持续上传，未处理状态，不予向微信端和Line推送");
+                    Console.WriteLine("-----------------------------------------------------------");
+                    return;
                 }
             }
             else
             {
-
-
-                Log4NetHelper.WriteInfoLog("向警报字典，警报中心点列表，NVR视频截取队列中加入数据，设备主键：" + alarmConvertEntity.DeviceID + " 警报中心位置：" + alarmConvertEntity.AlarmLocation + ",警报等级：" + alarmConvertEntity.AlarmLevel + ",警报发生时间：" + alarmConvertEntity.AlarmTime + ",警报更新时间：" + alarmConvertEntity.AlarmTimestamp + "");
-
-                alarmConvertEntitydictionary.TryAdd(alarmConvertEntity.AlarmLocation + "_" + alarmConvertEntity.AlarmLevel, alarmConvertEntity);
-                await Task.Run(async () => await TaskProducer(alarmConvertEntity));
-                await Task.Delay(500);
-             
-                AddAlarmConvertEntity(alarmConvertEntity);
-
+                alarmConvertEntitydictionary.TryAdd(alarmConvertEntitydictionarykey, model);
+                AddAlarmConvertEntity(model);
+                Task.Run(() => TaskProducer(model));
             }
-            Task ConcurrentQueueDownloadTask = Task.Factory.StartNew(delegate { ConcurrentQueueDownload(); });
-            //执行下载
+            Thread.Sleep(1000);
 
-            //if (AlarmConvertEntityListQueue.Count > 0)
-            //{
-            //    ExecuteDownload();
-            //}
-            await Task.Run(async () => await ClearAlarmConvertEntitydictionaryAndCenterEntitiesList());
+            Task ConcurrentQueueDownloadTask = Task.Factory.StartNew(delegate { ConcurrentQueueDownload(); });
+
         }
+
+
+
+
 
 
         /// <summary>
@@ -858,6 +969,7 @@ namespace ATIAN.Middleware.NVR
             centerEntity.ID = Guid.NewGuid();
             centerEntity.AlarmLevel = alarmConvertEntity.AlarmLevel;
             centerEntity.AlarmLocation = alarmConvertEntity.AlarmLocation;
+            centerEntity.DeviceID = alarmConvertEntity.DeviceID;
             switch (alarmConvertEntity.AlarmLevel)
             {
                 case 1:
@@ -1125,7 +1237,7 @@ namespace ATIAN.Middleware.NVR
         /// </summary>
         /// <param name="entity"></param>
         /// <returns></returns>
-        static async Task TaskProducer(AlarmConvertEntity entity)
+        static void TaskProducer(AlarmConvertEntity entity)
         {
 
             AlarmConvertEntityListQueue.Enqueue(entity);
@@ -1140,46 +1252,361 @@ namespace ATIAN.Middleware.NVR
         ///清除字典 列表中的无效数据
         /// </summary>
         /// <returns></returns>
-        static async Task ClearAlarmConvertEntitydictionaryAndCenterEntitiesList()
+        static void ClearAlarmConvertEntitydictionaryAndCenterEntitiesList(string SensorID)
         {
-            ///循环检查，清除失效的警报
-            for (int j = 0; j < alarmConvertEntitydictionary.ToList().Count; j++)
+            try
             {
-                DateTime nowtime = DateTime.Now;
-                AlarmConvertEntity entity = alarmConvertEntitydictionary.ToList()[j].Value;
-                int Minutes = 5;
-                switch (entity.AlarmLevel)
+                List<DeviceInfoEntity> DeviceInfoEntityList = APIInvoke.Instance().GetDeviceInfoEntiyList();
+                for (int j = 0; j < DeviceInfoEntityList.Count; j++)
                 {
-                    case 1:
-                        Minutes = alarmSetingInfoLevelOneEntity.IntervalTime;
-
-                        break;
-                    case 2:
-                        Minutes = alarmSetingInfoLevelTowEntity.IntervalTime;
-                        break;
-                    case 3:
-                        Minutes = alarmSetingInfoLevelThreeEntity.IntervalTime;
-                        break;
-                }
-
-                TimeSpan timeSpan = (nowtime - entity.AlarmTimestamp.AddMinutes(Minutes));
-
-
-                if (timeSpan.TotalMinutes > 0)
-                {
-                    string removekey = alarmConvertEntitydictionary.ToList()[j].Key;
-
-                    if (alarmConvertEntitydictionary.TryRemove(removekey, out entity))
+                    if (DeviceInfoEntityList[j].SensorID == SensorID)
                     {
-                        CenterEntity centerEntity = centerEntitiesList
-                            .Where(o => o.AlarmLevel == entity.AlarmLevel && o.AlarmLocation == entity.AlarmLocation)
-                            .FirstOrDefault();
-                        centerEntitiesList.Remove(centerEntity);
+
+
+                        //报警中
+
+                        List<Endpoint_Device_FiberAlarmLog_InfoEntity> endpointDeviceFiberAlarmLogInfoEntitiesList =
+                            APIInvoke.Instance().GetDFVFiberAlarmInfoList(DeviceInfoEntityList[j].DeviceID, true);
+
+                        if (endpointDeviceFiberAlarmLogInfoEntitiesList != null &&
+                            endpointDeviceFiberAlarmLogInfoEntitiesList.Count > 0)
+                        {
+                            for (int k = 0; k < endpointDeviceFiberAlarmLogInfoEntitiesList.Count; k++)
+                            {
+                                int AlarmLevel = endpointDeviceFiberAlarmLogInfoEntitiesList[k].AlarmLevel;
+                                float AlarmLocation = endpointDeviceFiberAlarmLogInfoEntitiesList[k].AlarmLocation;
+                                string DeviceID = endpointDeviceFiberAlarmLogInfoEntitiesList[k].DeviceID;
+                                string alarmConvertEntitydictionarykey =
+                                    DeviceInfoEntityList[j].SensorID + "_" + "1_" + AlarmLocation + "_" + AlarmLevel;
+                                //这里要做一个判断
+                                List<CenterEntity> removEntities = centerEntitiesList.Where(o => o.DeviceID == DeviceID).ToList();
+
+                                for (int l = 0; l < removEntities.Count; l++)
+                                {
+                                    centerEntitiesList.Remove(removEntities[l]);
+                                }
+                                AlarmConvertEntity model = new AlarmConvertEntity();
+                                alarmConvertEntitydictionary.TryRemove(alarmConvertEntitydictionarykey, out model);
+
+
+                            }
+                        }
+
+
+
+                        List<EndpointDeviceFiberBreakLogInfoEntity> endpointDeviceFiberBreakLogInfoEntitiesList =
+                            APIInvoke.Instance().GetDFVFiberBreakAlarmInfoList(DeviceInfoEntityList[j].DeviceID, true);
+
+                        if (endpointDeviceFiberBreakLogInfoEntitiesList != null &&
+                            endpointDeviceFiberBreakLogInfoEntitiesList.Count > 0)
+                        {
+                            for (int k = 0; k < endpointDeviceFiberBreakLogInfoEntitiesList.Count; k++)
+                            {
+                                float BreakPosition = (float)endpointDeviceFiberBreakLogInfoEntitiesList[k].BreakPosition;
+                                string alarmConvertEntitydictionarykey =
+                                    DeviceInfoEntityList[j].SensorID + "_" + "1_" + BreakPosition.ToString();
+                                string DeviceID = endpointDeviceFiberBreakLogInfoEntitiesList[k].DeviceID;
+                                //这里也要做判断
+                                List<FiberBreakAlarmCenterPayload> remoBreakAlarmCenterPayloads =
+                                    FiberBreakcenterEntitiesList
+                                        .Where(o => o.DeviceID == DeviceID).ToList();
+                                for (int l = 0; l < remoBreakAlarmCenterPayloads.Count; l++)
+                                {
+                                    FiberBreakcenterEntitiesList.Remove(remoBreakAlarmCenterPayloads[l]);
+                                }
+
+                             
+                                FiberBreakAlarmConvertEntity model = new FiberBreakAlarmConvertEntity();
+                                FiberalarmConvertEntitydictionary.TryRemove(alarmConvertEntitydictionarykey, out model);
+
+
+
+
+                            }
+                        }
 
                     }
+                }
+
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+
+            }
+
+        }
+
+
+        /// <summary>
+        /// 初始化未处理的警报，防止程序意外关闭
+        /// </summary>
+        static void InitAlarm()
+        {
+            List<DeviceInfoEntity> DeviceInfoEntityList = APIInvoke.Instance().GetDeviceInfoEntiyList();
+            for (int j = 0; j < DeviceInfoEntityList.Count; j++)
+            {
+                //报警中
+                if (DeviceInfoEntityList[j].IsAlarm)
+                {
+                    List<Endpoint_Device_FiberAlarmLog_InfoEntity> endpointDeviceFiberAlarmLogInfoEntitiesList = APIInvoke.Instance().GetDFVFiberAlarmInfoList(DeviceInfoEntityList[j].DeviceID, false);
+
+                    if (endpointDeviceFiberAlarmLogInfoEntitiesList != null && endpointDeviceFiberAlarmLogInfoEntitiesList.Count > 0)
+                    {
+                        for (int k = 0; k < endpointDeviceFiberAlarmLogInfoEntitiesList.Count; k++)
+                        {
+
+                            int AlarmLevel = endpointDeviceFiberAlarmLogInfoEntitiesList[k].AlarmLevel;
+                            float AlarmLocation = endpointDeviceFiberAlarmLogInfoEntitiesList[k].AlarmLocation;
+                            string alarmConvertEntitydictionarykey = DeviceInfoEntityList[j].SensorID + "_" + "1_" + AlarmLocation + "_" + AlarmLevel;
+                            if (centerEntitiesList.Count > 0)
+                            {
+                                var result = centerEntitiesList
+                                    .Where(o => o.AlarmLevel == AlarmLevel && o.AlarmLocation == AlarmLocation).ToList();
+                                if (result.Count == 0)
+                                {
+                                    alarmConvertEntitydictionary.TryAdd(alarmConvertEntitydictionarykey, null);
+                                    AddcenterEntitiesList(AlarmLevel, AlarmLocation,
+                                        (Guid)endpointDeviceFiberAlarmLogInfoEntitiesList[k].AlarmID, endpointDeviceFiberAlarmLogInfoEntitiesList[k].DeviceID);
+                                }
+                            }
+                            else
+                            {
+                                alarmConvertEntitydictionary.TryAdd(alarmConvertEntitydictionarykey, null);
+                                AddcenterEntitiesList(AlarmLevel, AlarmLocation,
+                                    (Guid)endpointDeviceFiberAlarmLogInfoEntitiesList[k].AlarmID, endpointDeviceFiberAlarmLogInfoEntitiesList[k].DeviceID);
+                            }
+                        }
+                    }
+
+                    List<EndpointDeviceFiberBreakLogInfoEntity> endpointDeviceFiberBreakLogInfoEntitiesList = APIInvoke.Instance().GetDFVFiberBreakAlarmInfoList(DeviceInfoEntityList[j].DeviceID, false);
+
+                    if (endpointDeviceFiberBreakLogInfoEntitiesList != null && endpointDeviceFiberBreakLogInfoEntitiesList.Count > 0)
+                    {
+                        for (int k = 0; k < endpointDeviceFiberBreakLogInfoEntitiesList.Count; k++)
+                        {
+                            float BreakPosition = (float)endpointDeviceFiberBreakLogInfoEntitiesList[k].BreakPosition;
+                            string alarmConvertEntitydictionarykey = DeviceInfoEntityList[j].SensorID + "_" + "1_" + BreakPosition.ToString();
+                            if (FiberBreakcenterEntitiesList.Count > 0)
+                            {
+                                var result = FiberBreakcenterEntitiesList
+                                    .Where(o => o.BreakPosition == BreakPosition).ToList();
+                                if (result.Count == 0)
+                                {
+                                    FiberalarmConvertEntitydictionary.TryAdd(alarmConvertEntitydictionarykey, null);
+                                    AddFiberBreakcenterEntitiesList(BreakPosition, endpointDeviceFiberBreakLogInfoEntitiesList[k].BreakID.ToString(), endpointDeviceFiberBreakLogInfoEntitiesList[k].DeviceID.ToString());
+                                }
+                            }
+                            else
+                            {
+                                FiberalarmConvertEntitydictionary.TryAdd(alarmConvertEntitydictionarykey, null);
+                                AddFiberBreakcenterEntitiesList(BreakPosition, endpointDeviceFiberBreakLogInfoEntitiesList[k].BreakID.ToString(), endpointDeviceFiberBreakLogInfoEntitiesList[k].DeviceID.ToString());
+                            }
+                        }
+                    }
+                }
+
+            }
+
+        }
+
+        /// <summary>
+        /// 向一般警报中心点集合中插入数据
+        /// </summary>
+        /// <param name="AlarmLevel"></param>
+        /// <param name="AlarmLocation"></param>
+        /// <param name="ID"></param>
+        static void AddcenterEntitiesList(int AlarmLevel, float AlarmLocation, Guid ID, string DeviceID)
+        {
+
+            CenterEntity fiberAlarmCenterPayload = new CenterEntity();
+
+            fiberAlarmCenterPayload.AlarmLevel = AlarmLevel;
+
+            fiberAlarmCenterPayload.AlarmLocation = AlarmLocation;
+            fiberAlarmCenterPayload.DeviceID = DeviceID;
+            switch (fiberAlarmCenterPayload.AlarmLevel)
+            {
+                case 1:
+                    fiberAlarmCenterPayload.IntervalLeft =
+                        fiberAlarmCenterPayload.AlarmLocation - alarmSetingInfoLevelOneEntity.IntervalLeft;
+                    fiberAlarmCenterPayload.IntervalRight =
+                        fiberAlarmCenterPayload.AlarmLocation + alarmSetingInfoLevelOneEntity.IntervalRight;
+                    break;
+                case 2:
+                    fiberAlarmCenterPayload.IntervalLeft =
+                        fiberAlarmCenterPayload.AlarmLocation - alarmSetingInfoLevelTowEntity.IntervalLeft;
+
+                    fiberAlarmCenterPayload.IntervalRight =
+                        fiberAlarmCenterPayload.AlarmLocation + alarmSetingInfoLevelTowEntity.IntervalRight;
+                    break;
+                case 3:
+                    fiberAlarmCenterPayload.IntervalLeft =
+                        fiberAlarmCenterPayload.AlarmLocation - alarmSetingInfoLevelThreeEntity.IntervalLeft;
+                    fiberAlarmCenterPayload.IntervalRight =
+                        fiberAlarmCenterPayload.AlarmLocation + alarmSetingInfoLevelThreeEntity.IntervalRight;
+                    break;
+            }
+            fiberAlarmCenterPayload.ID = ID;
+            centerEntitiesList.Add(fiberAlarmCenterPayload);
+        }
+
+
+        /// <summary>
+        /// 向断纤警报中心点集合插入数据
+        /// </summary>
+        static void AddFiberBreakcenterEntitiesList(float FiberBreakLength, string ID, string DeviceID)
+        {
+            FiberBreakAlarmCenterPayload centerEntity = new FiberBreakAlarmCenterPayload();
+            centerEntity.BreakID = ID;
+            centerEntity.DeviceID = DeviceID;
+            centerEntity.BreakPosition = FiberBreakLength;
+
+            centerEntity.IntervalLeft =
+                (float)FiberBreakLength - fiberBreakSeting.IntervalLeft;
+            centerEntity.IntervalRight =
+                (float)FiberBreakLength + fiberBreakSeting.IntervalRight;
+
+            FiberBreakcenterEntitiesList.Add(centerEntity
+            );
+        }
+
+        static void FilterChannelFiberResult(FiberBreakAlarmConvertEntity channelFiberModel)
+        {
+
+            int FiberBreakLength = (int)(channelFiberModel.BreakPosition);
+            string alarmConvertEntitydictionarykey = channelFiberModel.SensorID + "_" + channelFiberModel.ChannelID +
+                                                     "_" + FiberBreakLength.ToString();
+
+            AlarmConvertEntity model = new AlarmConvertEntity();
+            model.DeviceID = channelFiberModel.DeviceID;
+            model.AlarmType = 11;
+            model.AlarmTopic = "断纤故障";
+            model.AlarmContent = channelFiberModel.BreakContent;
+            model.AlarmLocation = channelFiberModel.BreakPosition;
+            model.AlarmLevel = 11;
+            model.AlarmMaxIntensity = 100;
+            model.AlarmPossibility = 100;
+            model.AlarmTime = channelFiberModel.BreakTime;
+            model.AlarmTimestamp = channelFiberModel.BreakTime;
+            model.GroupID = channelFiberModel.GroupID;
+            model.GroupName = channelFiberModel.GroupName;
+            model.GroupType = channelFiberModel.GroupType;
+            model.SensorID = channelFiberModel.SensorID;
+            model.SensorName = channelFiberModel.SensorName;
+            model.IsBreak = channelFiberModel.IsBreak;
+
+
+
+            if (FiberalarmConvertEntitydictionary.Count > 0)
+            {
+                //判断是否在中心点
+                FiberBreakAlarmCenterPayload centerEntity = IsBreakInCenter(channelFiberModel);
+
+                if (centerEntity != null && centerEntity.BreakPosition != 0)
+                {
+                    alarmConvertEntitydictionarykey = channelFiberModel.SensorID + "_" + channelFiberModel.ChannelID +
+                                                      "_" + ((int)centerEntity.BreakPosition).ToString();
+                }
+                //判断是否为之前的警报 在持续上传
+                if (!FiberalarmConvertEntitydictionary.ContainsKey(alarmConvertEntitydictionarykey))
+                {
+
+                    //字典新增
+                    FiberalarmConvertEntitydictionary.TryAdd(alarmConvertEntitydictionarykey, channelFiberModel);
+                    // 新增警报
+                    AddBreakAlarmConvertEntity(channelFiberModel);
+
+                    Task.Run(() => TaskProducer(model));
 
                 }
+                else
+                {
+                    if (FiberalarmConvertEntitydictionary[alarmConvertEntitydictionarykey] == null)
+                    {
+                        FiberalarmConvertEntitydictionary.TryUpdate(alarmConvertEntitydictionarykey, channelFiberModel, null);
+                    }
+
+                    Console.WriteLine("-----------------------------------------------------------");
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine(DateTime.Now.ToString() + "断纤警报持续上传，未处理状态，不予向微信端和Line推送");
+                    Log4NetHelper.WriteInfoLog("断纤警报持续上传，未处理状态，不予向微信端和Line推送");
+                    Console.WriteLine("-----------------------------------------------------------");
+                }
             }
+            else
+            {
+                //字典新增
+                FiberalarmConvertEntitydictionary.TryAdd(alarmConvertEntitydictionarykey, channelFiberModel);
+                // 新增警报
+                AddBreakAlarmConvertEntity(channelFiberModel);
+
+
+
+                Task.Run(() => TaskProducer(model));
+
+            }
+
+            Thread.Sleep(1000);
+
+            Task ConcurrentQueueDownloadTask = Task.Factory.StartNew(delegate { ConcurrentQueueDownload(); });
+
+
+        }
+
+
+        /// <summary>
+        /// 断纤中心点判断
+        /// </summary>
+        /// <returns></returns>
+        static FiberBreakAlarmCenterPayload IsBreakInCenter(FiberBreakAlarmConvertEntity alarmConvertEntity)
+        {
+            try
+            {
+                FiberBreakAlarmCenterPayload key = new FiberBreakAlarmCenterPayload();
+                for (int j = 0; j < FiberBreakcenterEntitiesList.Count; j++)
+                {
+                    if (FiberBreakcenterEntitiesList[j].IntervalLeft < alarmConvertEntity.BreakPosition && alarmConvertEntity.BreakPosition < FiberBreakcenterEntitiesList[j].IntervalRight)
+                    {
+                        key = FiberBreakcenterEntitiesList[j];
+                        break;
+                    }
+                }
+                return key;
+
+            }
+            catch (Exception)
+            {
+
+                return null;
+            }
+
+
+        }
+
+
+        /// <summary>
+        /// 向中心点列表中加入数据
+        /// 作为中心判断起始数据
+        /// </summary>
+        /// <param name="alarmConvertEntity"></param>
+        static FiberBreakAlarmCenterPayload AddBreakAlarmConvertEntity(FiberBreakAlarmConvertEntity alarmConvertEntity)
+        {
+
+            FiberBreakAlarmCenterPayload centerEntity = new FiberBreakAlarmCenterPayload();
+            centerEntity.BreakID = Guid.NewGuid().ToString();
+            centerEntity.DeviceID = alarmConvertEntity.DeviceID;
+            centerEntity.BreakPosition = alarmConvertEntity.BreakPosition;
+
+            centerEntity.IntervalLeft =
+                (float)alarmConvertEntity.BreakPosition - fiberBreakSeting.IntervalLeft;
+            centerEntity.IntervalRight =
+                (float)alarmConvertEntity.BreakPosition + fiberBreakSeting.IntervalRight;
+
+            FiberBreakcenterEntitiesList.Add(centerEntity
+            );
+
+            return centerEntity;
         }
     }
 }

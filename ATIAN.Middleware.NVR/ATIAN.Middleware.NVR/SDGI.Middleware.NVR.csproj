@@ -157,7 +157,13 @@
     <Compile Include="Entity\AlarmAndVideoEntity.cs" />
     <Compile Include="Entity\AlarmConvertEntity.cs" />
     <Compile Include="Entity\CenterEntity.cs" />
+    <Compile Include="Entity\ChannelFiberModel.cs" />
     <Compile Include="Entity\DeviceInfoEntity.cs" />
+    <Compile Include="Entity\EndpointDeviceFiberBreakLogInfoEntity.cs" />
+    <Compile Include="Entity\Endpoint_Device_FiberAlarmLog_InfoEntity.cs" />
+    <Compile Include="Entity\FiberBreakAlarmCenterPayload.cs" />
+    <Compile Include="Entity\FiberBreakAlarmConvertEntity.cs" />
+    <Compile Include="Entity\FiberBreakSeting.cs" />
     <Compile Include="Entity\MqttEntity.cs" />
     <Compile Include="Entity\NVRChannleEntity.cs" />
     <Compile Include="Help\Log4NetHelper.cs" />

@@ -40,6 +40,8 @@ namespace ATIAN.Middleware.NVR.Http
         public AlarmSeting AlarmSetings { get; set; }
 
 
+        [JsonProperty("FiberBreakSeting")]
+        public FiberBreakSeting FiberBreakSeting { get; set; }
 
         [JsonProperty("mqtt")]
         public MqttEntity Mqttseting { get; set; }

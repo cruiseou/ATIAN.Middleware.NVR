@@ -8,6 +8,7 @@ namespace ATIAN.Middleware.NVR.Entity
 {
     public class CenterEntity
     {
+        public string DeviceID { get; set; }
         public int AlarmLevel { get; set; }
 
         public float AlarmLocation { get; set; }
