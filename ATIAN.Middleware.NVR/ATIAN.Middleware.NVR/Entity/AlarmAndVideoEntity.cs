@@ -29,6 +29,6 @@ namespace ATIAN.Middleware.NVR.Entity
         public string VideoUrl { get; set; }
         public int GroupID { get; set; }
 
-      
+        public string GroupType { get; set; }
     }
 }

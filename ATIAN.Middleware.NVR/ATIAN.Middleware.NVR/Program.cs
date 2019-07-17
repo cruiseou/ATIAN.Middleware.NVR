@@ -689,7 +689,7 @@ namespace ATIAN.Middleware.NVR
             Console.WriteLine(DateTime.Now.ToString() + ":视频格式转换完成");
             Console.WriteLine("-----------------------------------------------------------");
 
-
+           
 
             string diskIndex = resultFileName.Split(':')[0].TrimEnd();
             string[] arraypath = resultFileName.Split('\\');
@@ -710,6 +710,28 @@ namespace ATIAN.Middleware.NVR
                 return;
             }
 
+            DeviceGroupInfoEntity deviceGroupInfoEntity = APIInvoke.Instance().GetDeviceGroupInfo(alarmConvertEntity.SensorID);
+
+            if (deviceGroupInfoEntity==null)
+            {
+                Console.WriteLine("-----------------------------------------------------------");
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine(DateTime.Now.ToString() + ":未获取到设备分组信息，停止推送");
+                Log4NetHelper.WriteErrorLog("未获取到设备分组信息，停止推送");
+                Console.WriteLine("-----------------------------------------------------------");
+                return;
+            }
+            else
+            {
+                Console.WriteLine("-----------------------------------------------------------");
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine(DateTime.Now.ToString() + ":获取设备分组信息成功");
+                Console.WriteLine(DateTime.Now.ToString() + ":" + deviceGroupInfoEntity.GroupID);
+                Console.WriteLine(DateTime.Now.ToString() + ":"+ deviceGroupInfoEntity.GroupType);
+                Log4NetHelper.WriteErrorLog("获取设备分组信息成功"+ deviceGroupInfoEntity.GroupID+ deviceGroupInfoEntity.GroupType);
+                Console.WriteLine("-----------------------------------------------------------");
+            }
+
             AlarmAndVideoEntity alarmAndVideoEntity = new AlarmAndVideoEntity()
             {
                 AlarmID = null,
@@ -722,8 +744,8 @@ namespace ATIAN.Middleware.NVR
                 AlarmPossibility = alarmConvertEntity.AlarmPossibility,
                 AlarmTime = alarmConvertEntity.AlarmTime,
                 AlarmTimestamp = alarmConvertEntity.AlarmTimestamp,
-                GroupID =
-                    alarmConvertEntity.GroupID,
+                GroupID = deviceGroupInfoEntity.GroupID,
+                GroupType = deviceGroupInfoEntity.GroupType,
                 SensorID = alarmConvertEntity.SensorID,
                 DeviceName = alarmConvertEntity.SensorName,
                 VideoUrl = mp4Url,
@@ -1315,7 +1337,7 @@ namespace ATIAN.Middleware.NVR
                                     FiberBreakcenterEntitiesList.Remove(remoBreakAlarmCenterPayloads[l]);
                                 }
 
-                             
+
                                 FiberBreakAlarmConvertEntity model = new FiberBreakAlarmConvertEntity();
                                 FiberalarmConvertEntitydictionary.TryRemove(alarmConvertEntitydictionarykey, out model);
 

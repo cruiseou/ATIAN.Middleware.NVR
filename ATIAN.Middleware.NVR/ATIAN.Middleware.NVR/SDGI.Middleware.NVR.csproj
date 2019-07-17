@@ -158,6 +158,7 @@
     <Compile Include="Entity\AlarmConvertEntity.cs" />
     <Compile Include="Entity\CenterEntity.cs" />
     <Compile Include="Entity\ChannelFiberModel.cs" />
+    <Compile Include="Entity\DeviceGroupInfoEntity.cs" />
     <Compile Include="Entity\DeviceInfoEntity.cs" />
     <Compile Include="Entity\EndpointDeviceFiberBreakLogInfoEntity.cs" />
     <Compile Include="Entity\Endpoint_Device_FiberAlarmLog_InfoEntity.cs" />
