@@ -1,9 +1,8 @@
 ﻿using ATIAN.Middleware.NVR.Entity;
+using ATIAN.Middleware.NVR.FTPHelp;
 using ATIAN.Middleware.NVR.Help;
 using ATIAN.Middleware.NVR.Http;
-
 using ATIAN.Middleware.NVR.NVRSDK;
-
 using ATIAN.Middleware.NVR.ProgressBarSolution;
 using MQTTnet;
 using MQTTnet.Client;
@@ -15,12 +14,11 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Web.UI.WebControls;
+using Exception = System.Exception;
 
 
 namespace ATIAN.Middleware.NVR
@@ -28,11 +26,7 @@ namespace ATIAN.Middleware.NVR
     class Program
     {
 
-
-
-
-
-        private static bool IsDown = true;
+       // private static bool IsDown = true;
         /// <summary>
         /// 一级警报设置
         /// </summary>
@@ -47,11 +41,6 @@ namespace ATIAN.Middleware.NVR
         /// </summary>
         static AlarmSetingInfo alarmSetingInfoLevelThreeEntity;
 
-
-        /// <summary>
-        /// 队列
-        /// </summary>
-        private static ConcurrentQueue<AlarmConvertEntity> AlarmConvertEntityListQueue;
 
 
         /// <summary>
@@ -73,10 +62,6 @@ namespace ATIAN.Middleware.NVR
         /// </summary>
         static FiberBreakSeting fiberBreakSeting;
 
-        delegate void IsConcurrentQueue();
-
-        private static event IsConcurrentQueue IsConcurrentQueueEvent;
-        //static BlockingCollection<AlarmConvertEntity> AlarmConvertEntityListQueue;
         /// <summary>
         /// mqtt客户端
         /// </summary>
@@ -108,7 +93,7 @@ namespace ATIAN.Middleware.NVR
 
         static Int32 m_lPlayHandle = -1;
 
-        static Int32 m_lDownHandle = -1;
+       
         static CHCNetSDK.NET_DVR_DEVICEINFO_V30 DeviceInfo;
 
         static CHCNetSDK.NET_DVR_IPPARACFG_V40 m_struIpParaCfgV40;
@@ -183,7 +168,7 @@ namespace ATIAN.Middleware.NVR
             fiberBreakSeting = config.FiberBreakSeting;
             //初始化队列
             Log4NetHelper.WriteInfoLog("初始化视频下载警报队列");
-            AlarmConvertEntityListQueue = new ConcurrentQueue<AlarmConvertEntity>();
+         //   AlarmConvertEntityListQueue = new ConcurrentQueue<AlarmConvertEntity>();
             Log4NetHelper.WriteInfoLog("初始化警报接受消息字典");
             alarmConvertEntitydictionary = new ConcurrentDictionary<string, AlarmConvertEntity>();
             Log4NetHelper.WriteInfoLog("初始化警报中心点列表");
@@ -209,16 +194,7 @@ namespace ATIAN.Middleware.NVR
             Console.ReadKey();
         }
 
-        /// <summary>
-        /// 从警报队列进行数据下载
-        /// </summary>
-        static void ConcurrentQueueDownload()
-        {
-            if (AlarmConvertEntityListQueue.Count > 0 && !AlarmConvertEntityListQueue.IsEmpty)
-            {
-                ExecuteDownload();
-            }
-        }
+    
 
 
 
@@ -333,10 +309,9 @@ namespace ATIAN.Middleware.NVR
                     {
                         Log4NetHelper.WriteInfoLog("接收到警报消息，设备主键：" + model.DeviceID + " 警报中心位置：" + model.AlarmLocation + ",警报等级：" + model.AlarmLevel + ",警报发生时间：" + model.AlarmTime + ",警报更新时间：" + model.AlarmTimestamp + "");
 
-                        Task.Run(() => FilterChannelAlarmResult(model));
+                        Task ConcurrentQueueDownloadTask = Task.Factory.StartNew(delegate { FilterChannelAlarmResult(model); }); 
 
-                        // InsertToNVRDownloadQueue(model);
-                        //ExistToDownload(model);
+                      
                     }
                     else
                     {
@@ -350,7 +325,13 @@ namespace ATIAN.Middleware.NVR
             {
                 var model = JsonConvert.DeserializeObject<FiberBreakAlarmConvertEntity>(payloadString);
                 model.ChannelID = 1;
-                Task.Run(() => FilterChannelFiberResult(model));
+                if (model.IsBreak)
+                {
+                    Task ConcurrentQueueDownloadTask = Task.Factory.StartNew(delegate { FilterChannelFiberResult(model); });
+
+                }
+              
+              
             }
             //清理警报
             if (e.ApplicationMessage.Topic.Split('/')[0] == "Remote" && e.ApplicationMessage.Topic.Split('/')[2] == "AlarmClear")
@@ -545,9 +526,6 @@ namespace ATIAN.Middleware.NVR
             str1 = String.Format("Camera {0}", iChanNo);
             m_lTree++;
 
-
-
-
         }
 
         /// <summary>
@@ -562,19 +540,21 @@ namespace ATIAN.Middleware.NVR
         /// <param name="filename"></param>
         static void DownloadByTimeAsync(DateTime dateTimeStart, DateTime dateTimeEnd, string NVRSerialNo, int NVRChannelNo, string SensorID, DateTime filename, AlarmConvertEntity alarmConvertEntity)
         {
+            Int32 m_lDownHandle = -1;
+            Console.WriteLine();
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine("-----------------------------------------------------------");
             Console.WriteLine(DateTime.Now.ToString() + ":开始下载设备号为：" + NVRSerialNo + "的第" + NVRChannelNo + "通道的视频信息");
             Log4NetHelper.WriteInfoLog("开始下载设备号为：" + NVRSerialNo + "的第" + NVRChannelNo + "通道的视频信息");
+            Console.WriteLine();
 
-            Task.Delay(10000);
 
             if (m_lDownHandle >= 0)
             {
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine(DateTime.Now.ToString() + ":" + "正在下载，请先停止下载");
                 Log4NetHelper.WriteErrorLog("正在下载，请先停止下载");
-                IsDown = true;
+              
                 return;
             }
 
@@ -617,7 +597,7 @@ namespace ATIAN.Middleware.NVR
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine(DateTime.Now.ToString() + ":" + str);
                 Log4NetHelper.WriteErrorLog(str);
-                m_lDownHandle = -1; IsDown = true;
+                m_lDownHandle = -1; 
                 return;
             }
             uint iOutValue = 0;
@@ -627,14 +607,16 @@ namespace ATIAN.Middleware.NVR
                 str = "NET_DVR_PLAYSTART failed, error code= " + iLastErr; //下载控制失败，输出错误号
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine(DateTime.Now.ToString() + ":" + str);
-                m_lDownHandle = -1; IsDown = true;
+                m_lDownHandle = -1; 
                 Log4NetHelper.WriteErrorLog("下载控制失败,NET_DVR_PLAYSTART failed, error code= " + iLastErr);
                 return;
             }
             ProgressBar progressBar = new ProgressBar(Console.CursorLeft, Console.CursorTop, 50, ProgressBarType.Multicolor);
             while (CHCNetSDK.NET_DVR_GetDownloadPos(m_lDownHandle) < 100)
             {
-                progressBar.Dispaly(CHCNetSDK.NET_DVR_GetDownloadPos(m_lDownHandle));
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine("视频已下载："+CHCNetSDK.NET_DVR_GetDownloadPos(m_lDownHandle)+"%");
+                // progressBar.Dispaly(CHCNetSDK.NET_DVR_GetDownloadPos(m_lDownHandle));
             }
             if (!CHCNetSDK.NET_DVR_StopGetFile(m_lDownHandle))
             {
@@ -643,14 +625,14 @@ namespace ATIAN.Middleware.NVR
 
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine(DateTime.Now.ToString() + ":" + str);
-                m_lDownHandle = -1; IsDown = true;
+                m_lDownHandle = -1; 
                 Log4NetHelper.WriteErrorLog("下载控制失败,NET_DVR_StopGetFile failed, error code= " + iLastErr);
                 return;
             }
             if (CHCNetSDK.NET_DVR_GetDownloadPos(m_lDownHandle) == 200) //网络异常，下载失败
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine(DateTime.Now.ToString() + ":" + "The downloading is abnormal for the abnormal network!"); IsDown = true;
+                Console.WriteLine(DateTime.Now.ToString() + ":" + "The downloading is abnormal for the abnormal network!"); 
                 Log4NetHelper.WriteErrorLog("下载控制失败,he downloading is abnormal for the abnormal network!");
 
                 m_lDownHandle = -1;
@@ -664,7 +646,7 @@ namespace ATIAN.Middleware.NVR
             Console.WriteLine("-----------------------------------------------------------");
 
             Log4NetHelper.WriteInfoLog("下载完成!当前文件存储在：" + fullpath);
-
+  
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine();
             Console.WriteLine(DateTime.Now.ToString() + ":开始进行视频格式转换");
@@ -689,7 +671,23 @@ namespace ATIAN.Middleware.NVR
             Console.WriteLine(DateTime.Now.ToString() + ":视频格式转换完成");
             Console.WriteLine("-----------------------------------------------------------");
 
-           
+            Console.WriteLine("-----------------------------------------------------------");
+            Console.WriteLine();
+            Console.WriteLine(DateTime.Now.ToString() + ":开始上传视频至150.109.71.129服务器");
+          
+            FtpHelper ftpHelper=new FtpHelper("150.109.71.129", "", "SGDI_FTPUSER", "Admin1234");
+            string ftpfile = filename.ToShortDateString().Replace(@"/", "");
+            if (!ftpHelper.FileExist(ftpfile))
+            {
+                Console.WriteLine("创建文件夹");
+                ftpHelper.MakeDir(ftpfile);
+            }
+            ftpHelper. ftpURI="ftp://" + "150.109.71.129" + "/" + ftpfile + "/";
+            Console.WriteLine("将文件:"+resultFileName+";上传到" + ftpHelper.ftpURI);
+            ftpHelper.UploadFile(resultFileName);
+            Console.WriteLine();
+            Console.WriteLine(DateTime.Now.ToString() + ":视频上传完成");
+            Console.WriteLine("-----------------------------------------------------------");
 
             string diskIndex = resultFileName.Split(':')[0].TrimEnd();
             string[] arraypath = resultFileName.Split('\\');
@@ -706,13 +704,13 @@ namespace ATIAN.Middleware.NVR
                 Console.WriteLine(DateTime.Now.ToString() + "未找到视频源文件。停止向微信端和Line推送");
                 Log4NetHelper.WriteInfoLog("未找到视频源文件。停止向微信端和Line推送");
                 Console.WriteLine("-----------------------------------------------------------");
-                IsDown = true;
+              
                 return;
             }
 
             DeviceGroupInfoEntity deviceGroupInfoEntity = APIInvoke.Instance().GetDeviceGroupInfo(alarmConvertEntity.SensorID);
 
-            if (deviceGroupInfoEntity==null)
+            if (deviceGroupInfoEntity == null)
             {
                 Console.WriteLine("-----------------------------------------------------------");
                 Console.ForegroundColor = ConsoleColor.Red;
@@ -727,8 +725,8 @@ namespace ATIAN.Middleware.NVR
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine(DateTime.Now.ToString() + ":获取设备分组信息成功");
                 Console.WriteLine(DateTime.Now.ToString() + ":" + deviceGroupInfoEntity.GroupID);
-                Console.WriteLine(DateTime.Now.ToString() + ":"+ deviceGroupInfoEntity.GroupType);
-                Log4NetHelper.WriteErrorLog("获取设备分组信息成功"+ deviceGroupInfoEntity.GroupID+ deviceGroupInfoEntity.GroupType);
+                Console.WriteLine(DateTime.Now.ToString() + ":" + deviceGroupInfoEntity.GroupType);
+                Log4NetHelper.WriteErrorLog("获取设备分组信息成功" + deviceGroupInfoEntity.GroupID + deviceGroupInfoEntity.GroupType);
                 Console.WriteLine("-----------------------------------------------------------");
             }
 
@@ -754,8 +752,7 @@ namespace ATIAN.Middleware.NVR
             FileInvoke.Instance().PushWeiXin(alarmAndVideoEntity);
             Console.WriteLine(DateTime.Now.ToString() + ":视频推送完成！！");
             Log4NetHelper.WriteInfoLog("视频推送完成");
-            IsDown = true;
-
+          
         }
 
 
@@ -825,13 +822,14 @@ namespace ATIAN.Middleware.NVR
         }
         private static void p_ErrorDataReceived(object sender, DataReceivedEventArgs e)
         {
+         //   Console.WriteLine();
             //WriteLog(e.Data);
-            Console.WriteLine(DateTime.Now.ToString() + ":" + e.Data);
+           Console.WriteLine(DateTime.Now.ToString() + ":" + e.Data);
         }
 
         private static void p_OutputDataReceived(object sender, DataReceivedEventArgs e)
         {
-
+            Console.WriteLine(DateTime.Now.ToString() + ":" + e.Data);
             //WriteLog(e.Data);
 
         }
@@ -856,74 +854,6 @@ namespace ATIAN.Middleware.NVR
 
 
         /// <summary>
-        /// 插入要执行截取视屏的队列
-        /// 1.判断警报中心点是否在长度区间范围内
-        /// 1.1 在长度区间范围内
-        ///     1.1.1 判断是否在时间范围内
-        ///             是 不做任何操作
-        ///             否 更新当前警报信息，向队列中插入一条
-        /// 1.2 不在长度区间范围内
-        ///     1.2.1 数组中新增一条，向队列中插入一条
-        /// </summary>
-        //static async Task InsertToNVRDownloadQueue(AlarmConvertEntity alarmConvertEntity)
-        //{
-        //    if (alarmConvertEntitydictionary.Count > 0)
-        //    {   //判断是否在中心点
-        //        CenterEntity centerEntity = IsInCenter(alarmConvertEntity);
-        //        string alarmConvertEntitydictionarykey = centerEntity.AlarmLocation + "_" + centerEntity.AlarmLevel;
-        //        if (alarmConvertEntitydictionary.ContainsKey(alarmConvertEntitydictionarykey))
-        //        {
-        //            AlarmConvertEntity entity = alarmConvertEntitydictionary[alarmConvertEntitydictionarykey];
-
-        //            //判断是否在时间范围内
-        //            if (IsInTime(alarmConvertEntity, entity))
-        //            {
-        //                //更新
-        //                if (alarmConvertEntitydictionary.TryUpdate(alarmConvertEntitydictionarykey, alarmConvertEntity, entity))
-        //                {
-        //                    //下载队列新增
-        //                    await Task.Run(() => TaskProducer(alarmConvertEntity));
-        //                    await Task.Delay(500);
-
-        //                }
-        //            }
-        //        }
-        //        else
-        //        {//不在中心点范围内则添加
-
-        //            alarmConvertEntitydictionary.TryAdd(alarmConvertEntity.AlarmLocation + "_" + alarmConvertEntity.AlarmLevel, alarmConvertEntity);
-        //            await Task.Run(() => TaskProducer(alarmConvertEntity));
-        //            await Task.Delay(500);
-
-        //            AddAlarmConvertEntity(alarmConvertEntity);
-        //        }
-        //    }
-        //    else
-        //    {
-
-
-        //        Log4NetHelper.WriteInfoLog("向警报字典，警报中心点列表，NVR视频截取队列中加入数据，设备主键：" + alarmConvertEntity.DeviceID + " 警报中心位置：" + alarmConvertEntity.AlarmLocation + ",警报等级：" + alarmConvertEntity.AlarmLevel + ",警报发生时间：" + alarmConvertEntity.AlarmTime + ",警报更新时间：" + alarmConvertEntity.AlarmTimestamp + "");
-
-        //        alarmConvertEntitydictionary.TryAdd(alarmConvertEntity.AlarmLocation + "_" + alarmConvertEntity.AlarmLevel, alarmConvertEntity);
-        //        await Task.Run(() => TaskProducer(alarmConvertEntity));
-        //        await Task.Delay(500);
-
-        //        AddAlarmConvertEntity(alarmConvertEntity);
-
-        //    }
-        //    Task ConcurrentQueueDownloadTask = Task.Factory.StartNew(delegate { ConcurrentQueueDownload(); });
-        //    //执行下载
-
-        //    //if (AlarmConvertEntityListQueue.Count > 0)
-        //    //{
-        //    //    ExecuteDownload();
-        //    //}
-        //    //await Task.Run(async () => await ClearAlarmConvertEntitydictionaryAndCenterEntitiesList());
-        //}
-
-
-
-        /// <summary>
         ///判断光纤警报
         /// </summary>
         /// <param name="model"></param>
@@ -944,7 +874,11 @@ namespace ATIAN.Middleware.NVR
                 {
                     alarmConvertEntitydictionary.TryAdd(alarmConvertEntitydictionarykey, model);
                     AddAlarmConvertEntity(model);
-                    Task.Run(() => TaskProducer(model));
+                        Log4NetHelper.WriteInfoLog("开始下载警报录像，警报信息说明：设备主键：" + model.DeviceID + " 警报中心位置：" + model.AlarmLocation + ",警报等级：" + model.AlarmLevel + ",警报发生时间：" + model.AlarmTime + ",警报更新时间：" + model.AlarmTimestamp + "");
+                    Task ConcurrentQueueDownloadTask = Task.Factory.StartNew(delegate { ExistToDownload(model); }); 
+
+                   
+
 
                 }
                 else
@@ -954,6 +888,7 @@ namespace ATIAN.Middleware.NVR
                         alarmConvertEntitydictionary.TryUpdate(alarmConvertEntitydictionarykey, model, null);
                     }
 
+                    Console.WriteLine();
                     Console.WriteLine("-----------------------------------------------------------");
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.WriteLine(DateTime.Now.ToString() + "震动警报持续上传，未处理状态，不予向微信端和Line推送");
@@ -966,11 +901,15 @@ namespace ATIAN.Middleware.NVR
             {
                 alarmConvertEntitydictionary.TryAdd(alarmConvertEntitydictionarykey, model);
                 AddAlarmConvertEntity(model);
-                Task.Run(() => TaskProducer(model));
-            }
-            Thread.Sleep(1000);
+                Log4NetHelper.WriteInfoLog("开始下载警报录像，警报信息说明：设备主键：" + model.DeviceID + " 警报中心位置：" + model.AlarmLocation + ",警报等级：" + model.AlarmLevel + ",警报发生时间：" + model.AlarmTime + ",警报更新时间：" + model.AlarmTimestamp + "");
+                
 
-            Task ConcurrentQueueDownloadTask = Task.Factory.StartNew(delegate { ConcurrentQueueDownload(); });
+                Task ConcurrentQueueDownloadTask = Task.Factory.StartNew(delegate { ExistToDownload(model); });
+              
+            }
+         //   Thread.Sleep(1000);
+
+         //   Task ConcurrentQueueDownloadTask = Task.Factory.StartNew(delegate { ConcurrentQueueDownload(); });
 
         }
 
@@ -1078,97 +1017,106 @@ namespace ATIAN.Middleware.NVR
         /// <param name="channelAlarmModel"></param>
         static void ExistToDownload(AlarmConvertEntity alarmConvertEntity)
         {
-
-            if (string.IsNullOrEmpty(alarmConvertEntity.DeviceID))
+            try
             {
-                Console.WriteLine();
-                Console.WriteLine("未找到相关设备信息");
-                Log4NetHelper.WriteErrorLog("DeviceID为空，中专服务异常");
-                IsDown = true;
-                return;
-            }
-            if (string.IsNullOrEmpty(alarmConvertEntity.SensorID))
-            {
-                Console.WriteLine();
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("未从服务器找到相关设备信息"); IsDown = true;
-                Log4NetHelper.WriteErrorLog("未从API接口中获得相关设备的详细信息，请检查平台设备绑定信息");
-                return;
-            }
-
-
-
-            List<NVRChannelInfo> nvrChannelInfoList = GetNVRChannelInfo(alarmConvertEntity.DeviceID);
-            if (nvrChannelInfoList != null && nvrChannelInfoList.Count > 0)
-            {
-                for (int j = 0; j < nvrChannelInfoList.Count; j++)
+                if (string.IsNullOrEmpty(alarmConvertEntity.DeviceID))
                 {
-                    int ChannelNo = nvrChannelInfoList[j].NVRChannelNo;
-                    NVRChannleEntity entity = nvrChannleEntities.Where(o => o.ChanNo == ChannelNo && o.Online == 1).FirstOrDefault();
-                    if (entity != null)
+                    Console.WriteLine();
+                    Console.WriteLine("未找到相关设备信息");
+                    Log4NetHelper.WriteErrorLog("DeviceID为空，中专服务异常");
+                  
+                    return;
+                }
+                if (string.IsNullOrEmpty(alarmConvertEntity.SensorID))
+                {
+                    Console.WriteLine();
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("未从服务器找到相关设备信息"); 
+                    Log4NetHelper.WriteErrorLog("未从API接口中获得相关设备的详细信息，请检查平台设备绑定信息");
+                    return;
+                }
+
+
+
+                List<NVRChannelInfo> nvrChannelInfoList = GetNVRChannelInfo(alarmConvertEntity.DeviceID);
+                if (nvrChannelInfoList != null && nvrChannelInfoList.Count > 0)
+                {
+                    for (int j = 0; j < nvrChannelInfoList.Count; j++)
                     {
-                        DateTime AlarmTime = alarmConvertEntity.AlarmTimestamp;
-                        //录像开始时间
-                        DateTime dateTimeStart = AlarmTime.AddSeconds(config.DVRInfos.AlarmTimeLeft);
-                        //录像结束时间
-                        DateTime dateTimeEnd = AlarmTime.AddSeconds(config.DVRInfos.AlarmTimeRight);
-                        //故意延时，确保从nvr中能拿到视频信息
-                        DateTime SetdateTimeEnd = dateTimeEnd.AddSeconds(config.DVRInfos.NVRDownloadDelay);
-                        DateTime nowDateTime = DateTime.Now;
-                        if (nowDateTime < SetdateTimeEnd)
+                        int ChannelNo = nvrChannelInfoList[j].NVRChannelNo;
+                        NVRChannleEntity entity = nvrChannleEntities.Where(o => o.ChanNo == ChannelNo && o.Online == 1).FirstOrDefault();
+                        if (entity != null)
                         {
-                            int bar = 0;
-                            TimeSpan timeseconds = (SetdateTimeEnd - nowDateTime);
-                            double timespen = timeseconds.TotalSeconds;
-                            Console.WriteLine();
-                            Console.ForegroundColor = ConsoleColor.Yellow;
-                            Console.WriteLine("录像时间小于当前时间，进程:" + Thread.CurrentThread.ManagedThreadId + " 需要等待：" + Convert.ToInt32(timespen) + "秒");
-                            Console.WriteLine();
-                            ProgressBar progressBar = new ProgressBar(Console.CursorLeft, Console.CursorTop, 50, ProgressBarType.Character);
-                            while (nowDateTime < SetdateTimeEnd)
+                            DateTime AlarmTime = alarmConvertEntity.AlarmTimestamp;
+                            //录像开始时间
+                            DateTime dateTimeStart = AlarmTime.AddSeconds(config.DVRInfos.AlarmTimeLeft);
+                            //录像结束时间
+                            DateTime dateTimeEnd = AlarmTime.AddSeconds(config.DVRInfos.AlarmTimeRight);
+                            //故意延时，确保从nvr中能拿到视频信息
+                            DateTime SetdateTimeEnd = dateTimeEnd.AddSeconds(config.DVRInfos.NVRDownloadDelay);
+                            DateTime nowDateTime = DateTime.Now;
+                            if (nowDateTime < SetdateTimeEnd)
                             {
-                                Task.Delay(5000);
-                                nowDateTime = DateTime.Now;
-                                TimeSpan nowtimeseconds = (SetdateTimeEnd - nowDateTime);
-                                double nowtimespen = nowtimeseconds.TotalSeconds;
-                                bar = Convert.ToInt32((timespen - nowtimespen) * (100 / timespen));
-                                progressBar.Dispaly(bar);
+                                int bar = 0;
+                                TimeSpan timeseconds = (SetdateTimeEnd - nowDateTime);
+                                double timespen = timeseconds.TotalSeconds;
+                                Console.WriteLine();
+                                Console.ForegroundColor = ConsoleColor.Yellow;
+                                Console.WriteLine("录像时间小于当前时间，进程:" + Thread.CurrentThread.ManagedThreadId + " 需要等待：" + Convert.ToInt32(timespen) + "秒");
+                                Console.WriteLine();
+                                ProgressBar progressBar = new ProgressBar(Console.CursorLeft, Console.CursorTop, 50, ProgressBarType.Character);
+                                while (nowDateTime < SetdateTimeEnd)
+                                {
+
+                                    Task.Delay(5000);
+                                    nowDateTime = DateTime.Now;
+                                    TimeSpan nowtimeseconds = (SetdateTimeEnd - nowDateTime);
+                                    double nowtimespen = nowtimeseconds.TotalSeconds;
+                                    bar = Convert.ToInt32((timespen - nowtimespen) * (100 / timespen));
+                                    progressBar.Dispaly(bar);
+                                }
+                                progressBar.Dispaly(100);
+                                Console.WriteLine();
                             }
-                            progressBar.Dispaly(100);
-                            Console.WriteLine();
+                            else
+                            {
+                                Console.WriteLine();
+                                Console.ForegroundColor = ConsoleColor.Yellow;
+                                Console.WriteLine("录像下载缓冲中......");
+                                Console.WriteLine();
+                                Thread.Sleep(3000);
+                            }
+                            DateTime fileDateTimeName = DateTime.Now;
+                            DownloadByTimeAsync(dateTimeStart, dateTimeEnd, nvrChannelInfoList[j].NVRSerialNo, nvrChannelInfoList[j].NVRChannelNo, alarmConvertEntity.SensorID, fileDateTimeName, alarmConvertEntity);
+                        
                         }
                         else
                         {
                             Console.WriteLine();
-                            Console.ForegroundColor = ConsoleColor.Yellow;
-                            Console.WriteLine("录像下载缓冲中......");
-                            Thread.Sleep(3000);
+                            Console.ForegroundColor = ConsoleColor.Red;
+                            Console.WriteLine("通道：" + ChannelNo + "不在线，无法连接设备，下载失败,请检查NVR与摄像头连接"); 
+                            Log4NetHelper.WriteErrorLog("通道：" + ChannelNo + "不在线，无法连接设备，下载失败,请检查NVR与摄像头连接");
+                            return;
                         }
-                        DateTime fileDateTimeName = DateTime.Now;
-                        DownloadByTimeAsync(dateTimeStart, dateTimeEnd, nvrChannelInfoList[j].NVRSerialNo, nvrChannelInfoList[j].NVRChannelNo, alarmConvertEntity.SensorID, fileDateTimeName, alarmConvertEntity);
-                        IsDown = true;
+                        Thread.Sleep(3000);
                     }
-                    else
-                    {
-                        Console.WriteLine();
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine("通道：" + ChannelNo + "不在线，无法连接设备，下载失败,请检查NVR与摄像头连接"); IsDown = true;
-                        Log4NetHelper.WriteErrorLog("通道：" + ChannelNo + "不在线，无法连接设备，下载失败,请检查NVR与摄像头连接");
-                        return;
-                    }
-                    Thread.Sleep(3000);
                 }
+                else
+                {
+                    Console.WriteLine();
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine("设备:" + alarmConvertEntity.DeviceID + "未关联NVR摄像头，请检查！！！");
+                    Log4NetHelper.WriteErrorLog("设备:" + alarmConvertEntity.DeviceID + "未关联NVR摄像头，请检查！！！");
+                    return;
+                }
+
             }
-            else
+            catch (Exception e)
             {
-                Console.WriteLine();
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("设备:" + alarmConvertEntity.DeviceID + "未关联NVR摄像头，请检查！！！"); IsDown = true;
-
-                Log4NetHelper.WriteErrorLog("设备:" + alarmConvertEntity.DeviceID + "未关联NVR摄像头，请检查！！！");
-                return;
+                Console.WriteLine(e);
+              
             }
-
+            
         }
 
         /// <summary>
@@ -1179,7 +1127,6 @@ namespace ATIAN.Middleware.NVR
             List<NVRChannelInfo> nvrChannelInfoList = new List<NVRChannelInfo>();
             if (!string.IsNullOrEmpty(deviceID))
             {
-
                 nvrChannelInfoList = APIInvoke.Instance().GetNvrChannelInfo(deviceID);
             }
             return nvrChannelInfoList;
@@ -1196,80 +1143,7 @@ namespace ATIAN.Middleware.NVR
             return FileInvoke.Instance().UploadFile(diskIndex, filepath, filename);
         }
 
-        /// <summary>
-        /// 执行下载
-        /// </summary>
-        static void ExecuteDownload()
-        {
-
-            //循环执行下载
-
-            if (AlarmConvertEntityListQueue.Count > 0)
-            {
-                for (int j = 0; j < AlarmConvertEntityListQueue.Count; j++)
-                {
-
-                    if (AlarmConvertEntityListQueue.Count == 0)
-                    {
-                        IsDown = true;
-
-                        Console.WriteLine();
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine("队列数据已经下载完成！！");
-                        Log4NetHelper.WriteInfoLog("队列数据已经下载完成！！");
-                        return;
-                    }
-                    while (IsDown)
-                    {
-                        IsDown = false;
-                        Console.WriteLine();
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine("开始下载录像总共" + AlarmConvertEntityListQueue.Count + "个录像需要下载");
-
-                        Log4NetHelper.WriteInfoLog("开始下载录像总共" + AlarmConvertEntityListQueue.Count + "个录像需要下载");
-
-                        AlarmConvertEntity workItem;
-                        if (AlarmConvertEntityListQueue.TryDequeue(out workItem))
-                        {
-
-                            Log4NetHelper.WriteInfoLog("开始下载警报录像，警报信息说明：设备主键：" + workItem.DeviceID + " 警报中心位置：" + workItem.AlarmLocation + ",警报等级：" + workItem.AlarmLevel + ",警报发生时间：" + workItem.AlarmTime + ",警报更新时间：" + workItem.AlarmTimestamp + "");
-                            ExistToDownload(workItem);
-
-                        }
-                        else
-                        {
-                            IsDown = true;
-                            Console.WriteLine();
-                            Console.ForegroundColor = ConsoleColor.Green;
-                            Console.WriteLine("队列数据已经下载完成！！");
-                            Log4NetHelper.WriteInfoLog("队列数据已经下载完成！！");
-                            break;
-                        }
-                    }
-                }
-                nvrChannleEntities.Clear();
-                Task.Delay(5000);
-                InfoIPChannel();
-            }
-
-        }
-
-        /// <summary>
-        /// 产生NVR视频下载队列
-        /// </summary>
-        /// <param name="entity"></param>
-        /// <returns></returns>
-        static void TaskProducer(AlarmConvertEntity entity)
-        {
-
-            AlarmConvertEntityListQueue.Enqueue(entity);
-            Console.WriteLine();
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("目前队列中总共有{0}个警报需要下载NVR视频", AlarmConvertEntityListQueue.Count);
-        }
-
-
-
+      
         /// <summary>
         ///清除字典 列表中的无效数据
         /// </summary>
@@ -1539,7 +1413,9 @@ namespace ATIAN.Middleware.NVR
                     // 新增警报
                     AddBreakAlarmConvertEntity(channelFiberModel);
 
-                    Task.Run(() => TaskProducer(model));
+                    Log4NetHelper.WriteInfoLog("开始下载警报录像，警报信息说明：设备主键：" + model.DeviceID + " 警报中心位置：" + model.AlarmLocation + ",警报等级：" + model.AlarmLevel + ",警报发生时间：" + model.AlarmTime + ",警报更新时间：" + model.AlarmTimestamp + "");
+                    Task ConcurrentQueueDownloadTask = Task.Factory.StartNew(delegate { ExistToDownload(model); });
+
 
                 }
                 else
@@ -1564,16 +1440,10 @@ namespace ATIAN.Middleware.NVR
                 AddBreakAlarmConvertEntity(channelFiberModel);
 
 
-
-                Task.Run(() => TaskProducer(model));
-
+                Log4NetHelper.WriteInfoLog("开始下载警报录像，警报信息说明：设备主键：" + model.DeviceID + " 警报中心位置：" + model.AlarmLocation + ",警报等级：" + model.AlarmLevel + ",警报发生时间：" + model.AlarmTime + ",警报更新时间：" + model.AlarmTimestamp + "");
+                Task ConcurrentQueueDownloadTask = Task.Factory.StartNew(delegate { ExistToDownload(model); });
+            
             }
-
-            Thread.Sleep(1000);
-
-            Task ConcurrentQueueDownloadTask = Task.Factory.StartNew(delegate { ConcurrentQueueDownload(); });
-
-
         }
 
 

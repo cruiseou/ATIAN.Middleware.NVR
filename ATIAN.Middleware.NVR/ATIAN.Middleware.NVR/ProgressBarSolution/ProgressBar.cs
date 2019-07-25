@@ -103,38 +103,49 @@ namespace ATIAN.Middleware.NVR.ProgressBarSolution
 
         public int Dispaly(int value, string msg)
         {
-            if (this.Value != value)
+            try
             {
-                this.Value = value;
-
-                if (this.ProgressBarType == ProgressBarType.Multicolor)
+                if (this.Value != value)
                 {
-                    // 保存背景色与前景色；
-                    colorBack = Console.BackgroundColor;
-                    colorFore = Console.ForegroundColor;
-                    // 绘制进度条进度                
-                    Console.BackgroundColor = ConsoleColor.Yellow;
-                    Console.SetCursorPosition(this.Left, this.Top);
-                    Console.Write(new string(' ', (int)Math.Round(this.Value / (100.0 / this.Width))));
-                    Console.BackgroundColor = colorBack;
+                    this.Value = value;
 
-                    // 更新进度百分比,原理同上.                 
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.SetCursorPosition(this.Left + this.Width + 1, this.Top);
-                    if (string.IsNullOrWhiteSpace(msg)) { Console.Write("{0}%", this.Value); } else { Console.Write(msg); }
-                    Console.ForegroundColor = colorFore;
+                    if (this.ProgressBarType == ProgressBarType.Multicolor)
+                    {
+                        // 保存背景色与前景色；
+                        colorBack = Console.BackgroundColor;
+                        colorFore = Console.ForegroundColor;
+                        // 绘制进度条进度                
+                        Console.BackgroundColor = ConsoleColor.Yellow;
+                        Console.SetCursorPosition(this.Left, this.Top);
+                        Console.Write(new string(' ', (int)Math.Round(this.Value / (100.0 / this.Width))));
+                        Console.BackgroundColor = colorBack;
+
+                        // 更新进度百分比,原理同上.                 
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.SetCursorPosition(this.Left + this.Width + 1, this.Top);
+                        if (string.IsNullOrWhiteSpace(msg)) { Console.Write("{0}%", this.Value); } else { Console.Write(msg); }
+                        Console.ForegroundColor = colorFore;
+                    }
+                    else
+                    {
+                        // 绘制进度条进度      
+                        Console.SetCursorPosition(this.Left + 1, this.Top);
+                        Console.Write(new string('*', (int)Math.Round(this.Value / (100.0 / (this.Width - 2)))));
+                        // 显示百分比   
+                        Console.SetCursorPosition(this.Left + this.Width + 1, this.Top);
+                        if (string.IsNullOrWhiteSpace(msg)) { Console.Write("{0}%", this.Value); } else { Console.Write(msg); }
+                       
+                    }
+                   
                 }
-                else
-                {
-                    // 绘制进度条进度      
-                    Console.SetCursorPosition(this.Left + 1, this.Top);
-                    Console.Write(new string('*', (int)Math.Round(this.Value / (100.0 / (this.Width - 2)))));
-                    // 显示百分比   
-                    Console.SetCursorPosition(this.Left + this.Width + 1, this.Top);
-                    if (string.IsNullOrWhiteSpace(msg)) { Console.Write("{0}%", this.Value); } else { Console.Write(msg); }
-                }
+                return value;
             }
-            return value;
+            catch (Exception e)
+            {
+              
+                return 0;
+            }
+           
         }
     }
 

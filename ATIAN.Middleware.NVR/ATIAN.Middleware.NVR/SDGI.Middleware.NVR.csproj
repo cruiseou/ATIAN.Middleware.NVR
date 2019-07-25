@@ -167,6 +167,7 @@
     <Compile Include="Entity\FiberBreakSeting.cs" />
     <Compile Include="Entity\MqttEntity.cs" />
     <Compile Include="Entity\NVRChannleEntity.cs" />
+    <Compile Include="FTPHelp\FtpHelper.cs" />
     <Compile Include="Help\Log4NetHelper.cs" />
     <Compile Include="Http\AlarmSeting.cs" />
     <Compile Include="Http\APIInvoke.cs" />
