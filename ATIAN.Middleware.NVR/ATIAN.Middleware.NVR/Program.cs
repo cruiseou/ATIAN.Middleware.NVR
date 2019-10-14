@@ -678,111 +678,7 @@ namespace ATIAN.Middleware.NVR
             VideoConversion.Enqueue(videoConversionEntity);
 
             Task.Run(() => ExecuteVideoConversion());
-            //Console.ForegroundColor = ConsoleColor.Green;
-            //Console.WriteLine();
-            //Console.WriteLine(DateTime.Now.ToString() + ":开始进行视频格式转换");
-            //Console.WriteLine("-----------------------------------------------------------");
-            //filename = DateTime.Now;
-            //name.Clear();
-            //name.Append(filename.ToString("yyyy-MM-dd HH:mm:ss:ff").Replace('-', ' ').Replace(':', ' ')
-            //    .Replace(@" ", ""));
-            //name.Append("_");
-            //name.Append(SensorID);
-            //name.Append("_");
-            //name.Append(NVRSerialNo);
-            //name.Append("_");
-            //name.Append(NVRChannelNo);
-
-
-            //string newFileName = ExistFolder(filename) + "\\" + name.ToString() + ".mp4";
-            //string resultFileName = VideoConverter(fullpath, newFileName);
-            ////  resultFileName = resultFileName.Replace('"', ' ').TrimEnd().TrimStart();
-            //Console.ForegroundColor = ConsoleColor.Green;
-            //Console.WriteLine();
-            //Console.WriteLine(DateTime.Now.ToString() + ":视频格式转换完成");
-            //Console.WriteLine("-----------------------------------------------------------");
-
-            //Console.WriteLine("-----------------------------------------------------------");
-            //Console.WriteLine();
-            //Console.WriteLine(DateTime.Now.ToString() + ":开始上传视频至150.109.71.129服务器");
-
-            //FtpHelper ftpHelper=new FtpHelper("150.109.71.129", "", "SGDI_FTPUSER", "Admin1234");
-            //string ftpfile = filename.ToShortDateString().Replace(@"/", "");
-            //if (!ftpHelper.FileExist(ftpfile))
-            //{
-            //    Console.WriteLine("创建文件夹");
-            //    ftpHelper.MakeDir(ftpfile);
-            //}
-            //ftpHelper. ftpURI="ftp://" + "150.109.71.129" + "/" + ftpfile + "/";
-            //Console.WriteLine("将文件:"+resultFileName+";上传到" + ftpHelper.ftpURI);
-            //ftpHelper.UploadFile(resultFileName);
-            //Console.WriteLine();
-            //Console.WriteLine(DateTime.Now.ToString() + ":视频上传完成");
-            //Console.WriteLine("-----------------------------------------------------------");
-
-            //string diskIndex = resultFileName.Split(':')[0].TrimEnd();
-            //string[] arraypath = resultFileName.Split('\\');
-            //string directoryBase = arraypath[3].TrimEnd() + "\\" + arraypath[4].TrimEnd() + "\\";
-
-
-
-            //string mp4Url = UploadFile(diskIndex, directoryBase, name.ToString());
-
-            //if (string.IsNullOrEmpty(mp4Url))
-            //{
-            //    Console.WriteLine("-----------------------------------------------------------");
-            //    Console.ForegroundColor = ConsoleColor.Red;
-            //    Console.WriteLine(DateTime.Now.ToString() + "未找到视频源文件。停止向微信端和Line推送");
-            //    Log4NetHelper.WriteInfoLog("未找到视频源文件。停止向微信端和Line推送");
-            //    Console.WriteLine("-----------------------------------------------------------");
-
-            //    return;
-            //}
-
-            //DeviceGroupInfoEntity deviceGroupInfoEntity = APIInvoke.Instance().GetDeviceGroupInfo(alarmConvertEntity.SensorID);
-
-            //if (deviceGroupInfoEntity == null)
-            //{
-            //    Console.WriteLine("-----------------------------------------------------------");
-            //    Console.ForegroundColor = ConsoleColor.Red;
-            //    Console.WriteLine(DateTime.Now.ToString() + ":未获取到设备分组信息，停止推送");
-            //    Log4NetHelper.WriteErrorLog("未获取到设备分组信息，停止推送");
-            //    Console.WriteLine("-----------------------------------------------------------");
-            //    return;
-            //}
-            //else
-            //{
-            //    Console.WriteLine("-----------------------------------------------------------");
-            //    Console.ForegroundColor = ConsoleColor.Green;
-            //    Console.WriteLine(DateTime.Now.ToString() + ":获取设备分组信息成功");
-            //    Console.WriteLine(DateTime.Now.ToString() + ":" + deviceGroupInfoEntity.GroupID);
-            //    Console.WriteLine(DateTime.Now.ToString() + ":" + deviceGroupInfoEntity.GroupType);
-            //    Log4NetHelper.WriteErrorLog("获取设备分组信息成功" + deviceGroupInfoEntity.GroupID + deviceGroupInfoEntity.GroupType);
-            //    Console.WriteLine("-----------------------------------------------------------");
-            //}
-
-            //AlarmAndVideoEntity alarmAndVideoEntity = new AlarmAndVideoEntity()
-            //{
-            //    AlarmID = null,
-            //    DeviceID = alarmConvertEntity.DeviceID,
-            //    AlarmType = alarmConvertEntity.AlarmType,
-            //    AlarmTopic = alarmConvertEntity.AlarmTopic,
-            //    AlarmLocation = alarmConvertEntity.AlarmLocation,
-            //    AlarmLevel = alarmConvertEntity.AlarmLevel,
-            //    AlarmMaxIntensity = alarmConvertEntity.AlarmMaxIntensity,
-            //    AlarmPossibility = alarmConvertEntity.AlarmPossibility,
-            //    AlarmTime = alarmConvertEntity.AlarmTime,
-            //    AlarmTimestamp = alarmConvertEntity.AlarmTimestamp,
-            //    GroupID = deviceGroupInfoEntity.GroupID,
-            //    GroupType = deviceGroupInfoEntity.GroupType,
-            //    SensorID = alarmConvertEntity.SensorID,
-            //    DeviceName = alarmConvertEntity.SensorName,
-            //    VideoUrl = mp4Url,
-            //};
-            //Console.WriteLine("向分组：" + alarmConvertEntity.GroupID + "推送微信消息");
-            //FileInvoke.Instance().PushWeiXin(alarmAndVideoEntity);
-            //Console.WriteLine(DateTime.Now.ToString() + ":视频推送完成！！");
-            //Log4NetHelper.WriteInfoLog("视频推送完成");
+      
 
         }
 
@@ -859,31 +755,7 @@ namespace ATIAN.Middleware.NVR
                 Console.WriteLine(DateTime.Now.ToString() + ":视频上传完成");
                 Console.WriteLine("-----------------------------------------------------------");
             }
-            //if (!ftpHelper.FileExist(ftpfile))
-            //{
-            //    Log4NetHelper.WriteInfoLog("创建文件夹");
-            //    Console.WriteLine("创建文件夹");
-            //    ftpHelper.MakeDir(ftpfile);
-            //}
-            //ftpHelper.ftpURI = "ftp://" + "150.109.71.129" + "/" + ftpfile + "/";
-            //Console.WriteLine("将文件:" + resultFileName + ";上传到" + ftpHelper.ftpURI);
-            //if (!ftpHelper.UploadFile(resultFileName))
-            //{
-            //    Log4NetHelper.WriteInfoLog("视频上传失败，终止推送");
-            //    Console.WriteLine();
-            //    Console.WriteLine(DateTime.Now.ToString() + ":视频上传失败，终止推送");
-            //    Console.WriteLine("-----------------------------------------------------------");
-            //    return;
-
-            //}
-            //else
-            //{
-            //    Log4NetHelper.WriteInfoLog("视频上传完成");
-            //    Console.WriteLine();
-            //    Console.WriteLine(DateTime.Now.ToString() + ":视频上传完成");
-            //    Console.WriteLine("-----------------------------------------------------------");
-            //}
-
+         
 
             string diskIndex = resultFileName.Split(':')[0].TrimEnd();
             string[] arraypath = resultFileName.Split('\\');
@@ -1070,10 +942,6 @@ namespace ATIAN.Middleware.NVR
                     AddAlarmConvertEntity(model);
                     Log4NetHelper.WriteInfoLog("开始下载警报录像，警报信息说明：设备主键：" + model.DeviceID + " 警报中心位置：" + model.AlarmLocation + ",警报等级：" + model.AlarmLevel + ",警报发生时间：" + model.AlarmTime + ",警报更新时间：" + model.AlarmTimestamp + "");
                     Task ConcurrentQueueDownloadTask = Task.Factory.StartNew(delegate { ExistToDownload(model); });
-
-
-
-
                 }
                 else
                 {
@@ -1081,14 +949,32 @@ namespace ATIAN.Middleware.NVR
                     {
                         alarmConvertEntitydictionary.TryUpdate(alarmConvertEntitydictionarykey, model, null);
                     }
+                    AlarmConvertEntity entity = alarmConvertEntitydictionary[alarmConvertEntitydictionarykey];
 
-                    Console.WriteLine();
-                    Console.WriteLine("-----------------------------------------------------------");
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine(DateTime.Now.ToString() + "震动警报持续上传，未处理状态，不予向微信端和Line推送");
-                    Log4NetHelper.WriteInfoLog("震动警报持续上传，未处理状态，不予向微信端和Line推送");
-                    Console.WriteLine("-----------------------------------------------------------");
-                    return;
+                    //判断是否在时间范围内
+                 
+
+                    if (IsInTime(model, entity))
+                    {
+                        if (alarmConvertEntitydictionary.TryUpdate(alarmConvertEntitydictionarykey, model, entity))
+                        {
+
+                            //向前端推送一条mqtt消息
+                            Task ConcurrentQueueDownloadTask = Task.Factory.StartNew(delegate { ExistToDownload(model); });
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine();
+                        Console.WriteLine("-----------------------------------------------------------");
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine(DateTime.Now.ToString() + "震动警报持续上传，未处理状态，未超过设定推送时间，不予向微信端和Line推送");
+                        Log4NetHelper.WriteInfoLog("震动警报持续上传，未处理状态，未超过设定推送时间，不予向微信端和Line推送");
+                        Console.WriteLine("-----------------------------------------------------------");
+                        return;
+                    }
+
+                  
                 }
             }
             else
@@ -1109,7 +995,7 @@ namespace ATIAN.Middleware.NVR
 
 
 
-
+    
 
 
         /// <summary>
