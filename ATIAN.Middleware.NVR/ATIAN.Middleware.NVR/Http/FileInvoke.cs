@@ -99,7 +99,7 @@ namespace ATIAN.Middleware.NVR.Http
         /// </summary>
         /// <param name="alarmAndVideoEntity"></param>
         /// <returns></returns>
-        public async Task<string> PushWeiXin(AlarmAndVideoEntity alarmAndVideoEntity)
+        public void PushWeiXin(AlarmAndVideoEntity alarmAndVideoEntity)
         {
             try
             {
@@ -108,15 +108,15 @@ namespace ATIAN.Middleware.NVR.Http
                 httpClient.BaseAddress = new Uri(fileSeting.weixingmpUploadapiUri);
                 StringContent stringContent = new StringContent(content);
                 stringContent.Headers.ContentType.MediaType = "application/json";
-                HttpResponseMessage response = await httpClient.PostAsync("api/message", stringContent);
-                Console.WriteLine("服务器返回：" + "状态码：" + response.StatusCode + "，结果：" + response.Content + "状态：" + response.ReasonPhrase);
-                return ("服务器返回：" + "状态码：" + response.StatusCode + "，结果：" + response.Content + "状态：" + response.ReasonPhrase);
+                 Task<HttpResponseMessage>  response =    httpClient.PostAsync("api/message", stringContent);
+                Console.WriteLine("服务器返回：" + "状态码：" + response.Result.StatusCode + "，结果：" + response.Result.Content + "状态：" + response.Result.ReasonPhrase);
+                
 
             }
             catch (Exception ex)
             {
                 Console.WriteLine("连接服务器出错：\r\n" + ex.Message);
-                return "连接服务器出错：\r\n" + ex.Message;
+              
             }
         }
 

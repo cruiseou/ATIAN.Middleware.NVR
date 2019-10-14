@@ -37,8 +37,9 @@ namespace ATIAN.Middleware.NVR.FTPHelp
         /// 上传
         /// </summary>
         /// <param name="filename">文件名</param>
-        public void UploadFile(string FileName)
+        public bool  UploadFile(string FileName)
         {
+            bool result = false;
             try
             {
                 FileInfo fileInfo = new FileInfo(FileName);
@@ -67,18 +68,22 @@ namespace ATIAN.Middleware.NVR.FTPHelp
                     }
                     strm.Close();
                     fs.Close();
+                    result = true;
                 }
                 catch (Exception ex)
                 {
-                    throw new Exception("Ftphelper Upload Error --> " + ex.Message);
+                    result = false;
+                    Console.WriteLine("Ftphelper Upload Error --> " + ex.Message);
                 }
             }
             catch (Exception e)
             {
+                result = false;
                 Console.WriteLine("上传服务器出错");
                 Console.WriteLine(e);
 
             }
+            return result;
         }
 
         /// <summary>
@@ -151,7 +156,7 @@ namespace ATIAN.Middleware.NVR.FTPHelp
             }
             catch (Exception ex)
             {
-                throw new Exception("FtpHelper Delete Error --> " + ex.Message + "  文件名:" + folderName);
+                Console.WriteLine("FtpHelper Delete Error --> " + ex.Message + "  文件名:" + folderName);
             }
         }
 
@@ -166,6 +171,7 @@ namespace ATIAN.Middleware.NVR.FTPHelp
             {
                 StringBuilder result = new StringBuilder();
                 FtpWebRequest ftp;
+                string url = "ftp://" + ftpServerIP + "/" + ftpRemotePath + "/";
                 ftp = (FtpWebRequest)FtpWebRequest.Create(new Uri(ftpURI));
                 ftp.Credentials = new NetworkCredential(ftpUserID, ftpPassword);
                 ftp.Method = WebRequestMethods.Ftp.ListDirectoryDetails;
@@ -195,7 +201,8 @@ namespace ATIAN.Middleware.NVR.FTPHelp
             catch (Exception ex)
             {
                 downloadFiles = null;
-                throw new Exception("FtpHelper  Error --> " + ex.Message);
+                Console.WriteLine("FtpHelper  Error --> " + ex.Message);
+                return downloadFiles;
             }
         }
 
@@ -218,7 +225,7 @@ namespace ATIAN.Middleware.NVR.FTPHelp
                     reqFTP.Credentials = new NetworkCredential(ftpUserID, ftpPassword);
                     reqFTP.Method = WebRequestMethods.Ftp.ListDirectory;
                      reqFTP.UsePassive = true;
-                    reqFTP.KeepAlive = true;
+                   // reqFTP.KeepAlive = true;
                     WebResponse response = reqFTP.GetResponse();
                     StreamReader reader = new StreamReader(response.GetResponseStream());
                     string line = reader.ReadLine();
@@ -235,10 +242,11 @@ namespace ATIAN.Middleware.NVR.FTPHelp
                 }
                 catch (Exception ex)
                 {
-                    downloadFiles = null;
+                    Console.WriteLine(ex);
+                      downloadFiles = null;
                     if (ex.Message.Trim() != "远程服务器返回错误: (550) 文件不可用(例如，未找到文件，无法访问文件)。")
                     {
-                        throw new Exception("FtpHelper GetFileList Error --> " + ex.Message.ToString());
+                        Console.WriteLine("FtpHelper GetFileList Error --> " + ex.Message.ToString());
                     }
                     return downloadFiles;
                 }
@@ -306,17 +314,28 @@ namespace ATIAN.Middleware.NVR.FTPHelp
         /// <param name="RemoteFileName">远程文件名</param>
         public bool FileExist(string RemoteFileName)
         {
-            Console.WriteLine("检查文件夹是否存在");
-            string[] fileList = GetFileList("*.*");
-            foreach (string str in fileList)
+            bool result = false;
+            try
             {
-                if (str.Trim() == RemoteFileName.Trim())
+                Console.WriteLine("检查文件夹是否存在");
+                string[] fileList = GetFileList("*.*");
+                foreach (string str in fileList)
                 {
-                    Console.WriteLine("文件夹已存在");
-                    return true;
+                    if (str.Trim() == RemoteFileName.Trim())
+                    {
+                        Console.WriteLine("文件夹已存在");
+                        result= true;
+                    }
                 }
             }
-            return false;
+            catch (Exception)
+            {
+                result = false;
+
+
+            }
+           
+            return result;
         }
 
         /// <summary>
@@ -328,8 +347,9 @@ namespace ATIAN.Middleware.NVR.FTPHelp
             FtpWebRequest reqFTP;
             try
             {
-                // dirName = name of the directory to create.
-                reqFTP = (FtpWebRequest)FtpWebRequest.Create(new Uri(ftpURI + dirName));
+                Console.WriteLine("MakeDir:" + ftpURI + dirName + "");
+                  // dirName = name of the directory to create.
+                  reqFTP = (FtpWebRequest)FtpWebRequest.Create(new Uri(ftpURI + dirName));
                 reqFTP.Method = WebRequestMethods.Ftp.MakeDirectory;
                 reqFTP.UseBinary = true;
                 reqFTP.UsePassive = true;
@@ -343,7 +363,7 @@ namespace ATIAN.Middleware.NVR.FTPHelp
             }
             catch (Exception ex)
             {
-                throw new Exception("FtpHelper MakeDir Error --> " + ex.Message);
+                Console.WriteLine("FtpHelper MakeDir Error --> " + ex.Message);
             }
         }
 
@@ -372,7 +392,7 @@ namespace ATIAN.Middleware.NVR.FTPHelp
             }
             catch (Exception ex)
             {
-                throw new Exception("FtpHelper GetFileSize Error --> " + ex.Message);
+                Console.WriteLine("FtpHelper GetFileSize Error --> " + ex.Message);
             }
             return fileSize;
         }
@@ -401,7 +421,7 @@ namespace ATIAN.Middleware.NVR.FTPHelp
             }
             catch (Exception ex)
             {
-                throw new Exception("FtpHelper ReName Error --> " + ex.Message);
+                Console.WriteLine ("FtpHelper ReName Error --> " + ex.Message);
             }
         }
 
